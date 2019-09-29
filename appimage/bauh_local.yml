@@ -1,0 +1,35 @@
+app: github.vinifmor.bauh
+
+ingredients:
+  dist: disco
+  sources: 
+    - deb http://us.archive.ubuntu.com/ubuntu/ disco disco-updates trusty-security main universe
+    - deb http://us.archive.ubuntu.com/ubuntu/ disco-updates main universe
+    - deb http://us.archive.ubuntu.com/ubuntu/ disco-security main universe
+  packages:
+    - python3-venv
+
+script:
+  - python3 -m venv usr
+  - ./usr/bin/pip install pip --upgrade
+  - ./usr/bin/pip install setuptools --upgrade
+  - ./usr/bin/pip install /home/vinicius/workspace/bauh --upgrade
+  - cp /home/vinicius/workspace/bauh/bauh/view/resources/img/logo.png github.vinifmor.bauh.png
+  - cp github.vinifmor.bauh.png ./usr/share/icons/hicolor/512x512/
+  - mkdir -p usr/share/applications
+  - cat > usr/share/applications/github.vinifmor.bauh.desktop <<\EOF
+  - [Desktop Entry]
+  - Type=Application
+  - Name=bauh
+  - Comment=Manage your Flatpak, Snap and AUR applications
+  - Comment[en]=Manage your Flatpak, Snap and AUR applications
+  - Comment[pt]=Gerencie seus aplicativos Flatpak, Snap e AUR
+  - Comment[es]=Administre sus aplicativos Flatpak, Snap e AUR
+  - Icon=github.vinifmor.bauh.png
+  - Exec=bin/bauh
+  - Categories=System;
+  - StartupWMClass=bauh
+  - MimeType=text/x-python3;text/x-python3;
+  - EOF
+  - cp usr/share/applications/github.vinifmor.bauh.desktop .
+  - usr/bin/pip3 freeze | grep "bauh" | cut -d "=" -f 3 >> ../VERSION
