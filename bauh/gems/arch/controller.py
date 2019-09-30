@@ -50,7 +50,7 @@ class ArchManager(SoftwareManager):
         self.comp_optimizer = ArchCompilationOptimizer(context.logger)
         self.logger = context.logger
         self.enabled = True
-        self.arch_distro = self.context.linux_distro[0].lower() == 'arch'
+        self.arch_distro = os.path.exists('/etc/arch-release')
 
     def _upgrade_search_result(self, apidata: dict, installed_pkgs: dict, downgrade_enabled: bool, res: SearchResult, disk_loader: DiskCacheLoader):
         app = self.mapper.map_api_data(apidata, installed_pkgs['not_signed'])
@@ -270,6 +270,8 @@ class ArchManager(SoftwareManager):
             if pkg.pkgbuild:
                 info['13_pkg_build'] = pkg.pkgbuild
 
+            info['14_installed_files'] = pacman.list_installed_files(pkg.name)
+
             return info
         else:
             info = {
@@ -295,7 +297,7 @@ class ArchManager(SoftwareManager):
                     info['12_optdepends'] = srcinfo['optdepends']
 
             if pkg.pkgbuild:
-                info['13_pkg_build'] = pkg.pkgbuild
+                info['00_pkg_build'] = pkg.pkgbuild
             else:
                 info['11_pkg_build_url'] = pkg.get_pkg_build_url()
 
