@@ -3,6 +3,7 @@ import subprocess
 from io import StringIO
 from typing import List
 
+from bauh.api.constants import HOME_PATH
 from bauh.api.exception import NoInternetException
 from bauh.commons.system import new_subprocess, run_cmd, new_root_subprocess
 
@@ -297,4 +298,4 @@ def has_remotes_set() -> bool:
 
 
 def run(app_id: str):
-    subprocess.Popen([BASE_CMD, 'run', app_id])
+    subprocess.Popen([BASE_CMD, 'run', app_id], cwd=HOME_PATH)

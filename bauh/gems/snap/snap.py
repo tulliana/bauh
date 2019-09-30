@@ -1,8 +1,10 @@
 import logging
+import os
 import re
 import subprocess
 from typing import List
 
+from bauh.api.constants import HOME_PATH
 from bauh.commons.system import new_root_subprocess, run_cmd, new_subprocess
 from bauh.gems.snap.model import SnapApplication
 
@@ -186,7 +188,7 @@ def run(app: SnapApplication, logger: logging.Logger):
 
         if command:
             logger.info("Running '{}'".format(command))
-            subprocess.Popen([BASE_CMD, 'run', command])
+            subprocess.Popen([BASE_CMD, 'run', command], cwd=HOME_PATH)
             return
 
         logger.error("No valid command found for '{}'".format(app_name))

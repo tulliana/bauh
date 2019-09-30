@@ -669,7 +669,7 @@ class ArchManager(SoftwareManager):
 
     def can_work(self) -> bool:
         try:
-            return self.arch_distro and pacman.is_enabled() and self._is_wget_available()
+            return self.arch_distro and not self.context.cwd.startswith('/tmp/') and pacman.is_enabled() and self._is_wget_available()
         except FileNotFoundError:
             return False
 
