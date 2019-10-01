@@ -1,0 +1,116 @@
+app-id: github.vinifmor.bauh
+
+runtime: org.kde.Platform
+runtime-version: '5.13'
+sdk: org.kde.Sdk
+
+command: /app/bin/bauh
+
+finish-args:
+  # X11/Wayland
+  - --socket=x11
+  - --share=ipc
+  - --socket=wayland
+  - --device=dri
+  # Flashcards with sound
+  - --socket=pulseaudio
+  # Sync
+  - --share=network
+  # Allow other instances to see lockfiles
+  - --env=TMPDIR=/var/tmp
+
+modules:
+  - name: sip
+    config-opts:
+      - --no-dist-info
+      - --no-stubs
+      - --bindir=/app/bin
+      - --destdir=/app/lib/python3.7/site-packages
+      - --incdir=/app/include
+      - --pyidir=/app/lib/python3.7/site-packages
+      - --sipdir=/app/share/sip
+      - --sip-module=PyQt5.sip
+    sources:
+      - type: archive
+        url: https://www.riverbankcomputing.com/static/Downloads/sip/4.19.19/sip-4.19.19.tar.gz
+        sha256: 5436b61a78f48c7e8078e93a6b59453ad33780f80c644e5f3af39f94be1ede44
+      - type: script
+        commands:
+          - processed=`sed -e 's|--prefix=/app||' <<< $@`
+          - python3 configure.py $processed
+        dest-filename: configure
+    cleanup:
+      - /bin
+      - /include
+
+  - name: pyqt5
+    config-opts:
+      - --assume-shared
+      - --concatenate
+      - --confirm-license
+      - --no-designer-plugin
+      - --no-dist-info
+      - --no-docstrings
+      - --no-qml-plugin
+      - --no-qsci-api
+      - --no-stubs
+      - --no-tools
+      - QMAKE_CFLAGS_RELEASE='-I/usr/include/python3.7m/'
+      - QMAKE_CXXFLAGS_RELEASE='-I/usr/include/python3.7m/'
+    # FIXME: we should do this on ARM too, but for some reason it fails to build
+    build-options:
+      arch:
+        i386:
+          config-opts:
+            - --enable=QtCore
+            - --enable=QtGui
+            - --enable=QtNetwork
+            - --enable=QtPrintSupport
+            - --enable=QtWebChannel
+            - --enable=QtWidgets
+        x86_64:
+          config-opts:
+            - --enable=QtCore
+            - --enable=QtGui
+            - --enable=QtNetwork
+            - --enable=QtPrintSupport
+            - --enable=QtWebChannel
+            - --enable=QtWidgets
+    sources:
+      - type: archive
+        url: https://www.riverbankcomputing.com/static/Downloads/PyQt5/5.13.1/PyQt5_gpl-5.13.1.tar.gz
+        sha256: 54b7f456341b89eeb3930e786837762ea67f235e886512496c4152ebe106d4af
+      - type: script
+        commands:
+          - processed=`sed -e 's|prefix|sysroot|' <<< $@`
+          - python3 configure.py $processed
+        dest-filename: configure
+    cleanup:
+      - /share/sip
+
+  - name: app-install
+    buildsystem: simple
+    build-options:
+      build-args:
+            - --share=network
+            
+    build-commands:
+      - install -D setup.py /app/package/setup.py
+      - cp requirements.txt /app/package/
+      - cp MANIFEST.in /app/package/
+      - cp setup.cfg /app/package/
+      - cp -r bauh/ /app/package/bauh
+      - pip3 install /app/package
+        
+    sources:
+      - type: file
+        path: setup.py
+      - type: file
+        path: setup.cfg
+      - type: file
+        path: requirements.txt
+      - type: file,
+        path: MANIFEST.in
+      - type: dir,
+        path: bauh/,
+        dest: bauh/
