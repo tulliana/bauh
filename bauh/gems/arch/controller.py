@@ -156,6 +156,7 @@ class ArchManager(SoftwareManager):
         apps = []
         if installed and installed['not_signed']:
             self.dcache_updater.join()
+
             self._fill_aur_pkgs(installed['not_signed'], apps, disk_loader, internet_available)
 
         return SearchResult(apps, None, len(apps))
@@ -424,7 +425,7 @@ class ArchManager(SoftwareManager):
 
         # building main package
         handler.watcher.change_substatus(self.i18n['arch.building.package'].format(bold(pkgname)))
-        pkgbuilt, output = handler.handle_simple(SimpleProcess(['makepkg', '-ALcsmf'], cwd=project_dir, lang=None))
+        pkgbuilt, output = handler.handle_simple(SimpleProcess(['makepkg', '-ALcsmf'], cwd=project_dir))
         self._update_progress(handler.watcher, 65, change_progress)
 
         if pkgbuilt:
