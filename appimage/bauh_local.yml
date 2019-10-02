@@ -10,11 +10,12 @@ ingredients:
     - python3-venv
 
 script:
-  - python3 -m venv usr
+  - virtualenv -p python3.7 usr
+  # - python3 -m venv user
   - ./usr/bin/pip install pip --upgrade
   - ./usr/bin/pip install setuptools --upgrade
-  - ./usr/bin/pip install /home/vinicius/workspace/bauh --upgrade
-  - cp /home/vinicius/workspace/bauh/bauh/view/resources/img/logo.png github.vinifmor.bauh.png
+  - ./usr/bin/pip install /home/$USER/workspace/bauh --upgrade
+  - cp /home/$USER/workspace/bauh/bauh/view/resources/img/logo.png github.vinifmor.bauh.png
   - cp github.vinifmor.bauh.png ./usr/share/icons/hicolor/512x512/
   - mkdir -p usr/share/applications
   - cat > usr/share/applications/github.vinifmor.bauh.desktop <<\EOF
