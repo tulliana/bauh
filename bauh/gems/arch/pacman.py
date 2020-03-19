@@ -376,10 +376,10 @@ def get_version_for_not_installed(pkgname: str) -> str:
 def map_repositories(pkgnames: Iterable[str]) -> Dict[str, str]:
     info = run_cmd('pacman -Si {}'.format(' '.join(pkgnames)), print_error=False, ignore_return_code=True)
     if info:
-        repos = re.findall(r'(Name|Repository)\s*:\s*(\w+)', info)
+        repos = re.findall(r'(Name|Repository)\s*:\s*(.+)', info)
 
         if repos:
-            return {repos[idx+1][1]: repo_data[1] for idx, repo_data in enumerate(repos) if idx % 2 == 0}
+            return {repos[idx+1][1].strip(): repo_data[1].strip() for idx, repo_data in enumerate(repos) if idx % 2 == 0}
 
     return {}
 
