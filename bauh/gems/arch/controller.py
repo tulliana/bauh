@@ -487,18 +487,14 @@ class ArchManager(SoftwareManager):
             return False
 
         handler.watcher.change_substatus(self.i18n['arch.downgrade.install_older'])
-
         handler.watcher.change_progress(60)
-        if not handler.handle(pacman.install_as_process(pkgpath=file_path,
-                                                        root_password=root_password,
-                                                        file=True)):
-            handler.watcher.show_message(title=self.i18n['arch.downgrade.error'],
-                                         body=self.i18n['arch.downgrade.impossible'].format(pkg.name),
-                                         type_=MessageType.ERROR)
-            return False
 
-        handler.watcher.change_progress(100)
-        return True
+        return self._install(pkgname=pkg.name,
+                             maintainer=pkg.repository,
+                             install_file=file_path,
+                             root_password=root_password,
+                             repository=pkg.repository,
+                             handler=handler)
 
     def downgrade(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher) -> bool:
         if not self._check_action_allowed(pkg, watcher):
