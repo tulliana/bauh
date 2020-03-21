@@ -3,7 +3,7 @@ import time
 from threading import Thread
 from typing import Dict, Set, List, Tuple, Iterable
 
-from bauh.api.abstract.controller import UpdateRequirements, UpdateRequirement
+from bauh.api.abstract.controller import UpgradeRequirements, UpgradeRequirement
 from bauh.api.abstract.handler import ProcessWatcher
 from bauh.gems.arch import pacman, sorting
 from bauh.gems.arch.aur import AURClient
@@ -13,13 +13,27 @@ from bauh.gems.arch.model import ArchPackage
 from bauh.view.util.translation import I18n
 
 
+class UpgradeOutputStatusHandler:
+
+    def __init__(self, watcher: ProcessWatcher, i18n: I18n):
+        self.watcher = watcher
+        self.i18n = i18n
+
+    def handle(self, output: str):
+        if output:
+            if output.startswith('downloading'):
+                self.watcher.change_substatus('{} {}'.format(self.i18n['downloading'].capitalize(), output.split(' ')[1].strip()))
+            elif output.startswith('upgrading'):
+                self.watcher.change_substatus('{} {}'.format(self.i18n['manage_window.status.upgrading'].capitalize(), output.split(' ')[1].strip()))
+
+
 class UpdateRequirementsContext:
 
     def __init__(self, to_update: Dict[str, ArchPackage], repo_to_update: Dict[str, ArchPackage],
                  aur_to_update: Dict[str, ArchPackage], repo_to_install: Dict[str, ArchPackage],
                  aur_to_install: Dict[str, ArchPackage], to_install: Dict[str, ArchPackage],
-                 pkgs_data: Dict[str, dict], cannot_update: Dict[str, UpdateRequirement],
-                 to_remove: Dict[str, UpdateRequirement], installed_names: Set[str], provided_names: Dict[str, str],
+                 pkgs_data: Dict[str, dict], cannot_upgrade: Dict[str, UpgradeRequirement],
+                 to_remove: Dict[str, UpgradeRequirement], installed_names: Set[str], provided_names: Dict[str, str],
                  aur_index: Set[str], arch_config: dict, root_password: str):
         self.to_update = to_update
         self.repo_to_update = repo_to_update
@@ -27,7 +41,7 @@ class UpdateRequirementsContext:
         self.repo_to_install = repo_to_install
         self.aur_to_install = aur_to_install
         self.pkgs_data = pkgs_data
-        self.cannot_update = cannot_update
+        self.cannot_upgrade = cannot_upgrade
         self.root_password = root_password
         self.installed_names = installed_names
         self.provided_names = provided_names
@@ -52,10 +66,10 @@ class UpdatesSummarizer:
     def _handle_conflict_both_to_install(self, pkg1: str, pkg2: str, context: UpdateRequirementsContext):
         for src_pkg in {p for p, data in context.pkgs_data.items() if
                         data['d'] and pkg1 in data['d'] or pkg2 in data['d']}:
-            if src_pkg not in context.cannot_update:
+            if src_pkg not in context.cannot_upgrade:
                 reason = self.i18n['arch.update_summary.to_install.dep_conflict'].format("'{}'".format(pkg1),
                                                                                          "'{}'".format(pkg2))
-                context.cannot_update[src_pkg] = UpdateRequirement(context.to_update[src_pkg], reason)
+                context.cannot_upgrade[src_pkg] = UpgradeRequirement(context.to_update[src_pkg], reason)
 
             del context.to_update[src_pkg]
 
@@ -79,11 +93,11 @@ class UpdatesSummarizer:
         to_install, to_update = (pkg1, pkg2) if pkg1_to_install else (pkg2, pkg1)
         to_install_srcs = {p for p, data in context.pkgs_data.items() if data['d'] and to_install in data['d']}
 
-        if to_update not in context.cannot_update:
+        if to_update not in context.cannot_upgrade:
             srcs_str = ', '.join(("'{}'".format(p) for p in to_install_srcs))
             reason = self.i18n['arch.update_summary.to_update.conflicts_dep'].format("'{}'".format(to_install),
                                                                                      srcs_str)
-            context.cannot_update[to_install] = UpdateRequirement(context.to_update[to_update], reason)
+            context.cannot_upgrade[to_install] = UpgradeRequirement(context.to_update[to_update], reason)
 
         if to_update in context.to_update:
             del context.to_update[to_update]
@@ -91,10 +105,10 @@ class UpdatesSummarizer:
         for src_pkg in to_install_srcs:
             src_to_install = src_pkg in context.to_install
             pkg = context.to_install[src_pkg] if src_to_install else context.to_update[src_pkg]
-            if src_pkg not in context.cannot_update:
+            if src_pkg not in context.cannot_upgrade:
                 reason = self.i18n['arch.update_summary.to_update.dep_conflicts'].format("'{}'".format(to_install),
                                                                                          "'{}'".format(to_update))
-                context.cannot_update[src_pkg] = UpdateRequirement(pkg, reason)
+                context.cannot_upgrade[src_pkg] = UpgradeRequirement(pkg, reason)
 
             if src_to_install:
                 del context.to_install[src_pkg]
@@ -117,13 +131,13 @@ class UpdatesSummarizer:
             del context.to_install[to_install]
 
     def _handle_conflict_both_to_update(self, pkg1: str, pkg2: str, context: UpdateRequirementsContext):
-        if pkg1 not in context.cannot_update:
+        if pkg1 not in context.cannot_upgrade:
             reason = "{} '{}'".format(self.i18n['arch.info.conflicts with'].capitalize(), pkg2)
-            context.cannot_update[pkg1] = UpdateRequirement(pkg=context.to_update[pkg1], reason=reason)
+            context.cannot_upgrade[pkg1] = UpgradeRequirement(pkg=context.to_update[pkg1], reason=reason)
 
-        if pkg2 not in context.cannot_update:
+        if pkg2 not in context.cannot_upgrade:
             reason = "{} '{}'".format(self.i18n['arch.info.conflicts with'].capitalize(), pkg1)
-            context.cannot_update[pkg2] = UpdateRequirement(pkg=context.to_update[pkg2], reason=reason)
+            context.cannot_upgrade[pkg2] = UpgradeRequirement(pkg=context.to_update[pkg2], reason=reason)
 
         for p in (pkg1, pkg2):
             if p in context.to_update:
@@ -186,7 +200,7 @@ class UpdatesSummarizer:
                     req = ArchPackage(name=dep, installed=True, i18n=self.i18n)
                     to_remove_map[dep] = req
                     reason = "{} '{}'".format(self.i18n['arch.info.depends on'].capitalize(), source)
-                    context.to_remove[dep] = UpdateRequirement(req, reason)
+                    context.to_remove[dep] = UpgradeRequirement(req, reason)
 
         if root_conflict:
             for dep, source in root_conflict.items():
@@ -194,7 +208,7 @@ class UpdatesSummarizer:
                     req = ArchPackage(name=dep, installed=True, i18n=self.i18n)
                     to_remove_map[dep] = req
                     reason = "{} '{}'".format(self.i18n['arch.info.conflicts with'].capitalize(), source)
-                    context.to_remove[dep] = UpdateRequirement(req, reason)
+                    context.to_remove[dep] = UpgradeRequirement(req, reason)
 
         if to_remove_map:
             for name in to_remove_map.keys():  # upgrading lists
@@ -321,8 +335,8 @@ class UpdatesSummarizer:
                 context.aur_index.update(names)
                 self.logger.info("AUR index loaded on the context")
 
-    def _map_requirement(self, pkg: ArchPackage, context: UpdateRequirementsContext, installed_sizes: Dict[str, int] = None) -> UpdateRequirement:
-        requirement = UpdateRequirement(pkg)
+    def _map_requirement(self, pkg: ArchPackage, context: UpdateRequirementsContext, installed_sizes: Dict[str, int] = None) -> UpgradeRequirement:
+        requirement = UpgradeRequirement(pkg)
 
         if pkg.repository != 'aur':
             data = context.pkgs_data[pkg.name]
@@ -336,8 +350,8 @@ class UpdatesSummarizer:
 
         return requirement
 
-    def summarize(self, pkgs: List[ArchPackage], sort: bool, root_password: str) -> UpdateRequirements:
-        res = UpdateRequirements(None, [], None, [])
+    def summarize(self, pkgs: List[ArchPackage], sort: bool, root_password: str) -> UpgradeRequirements:
+        res = UpgradeRequirements(None, [], None, [])
 
         context = UpdateRequirementsContext({}, {}, {}, {}, {}, {}, {}, {}, {}, None, {}, set(), read_config(), root_password)
         self.__fill_aur_index(context)
@@ -377,15 +391,15 @@ class UpdatesSummarizer:
             installed_sizes = pacman.get_installed_size(list(context.to_update.keys()))
             if sort:
                 sorted_pkgs = sorting.sort(context.to_update.keys(), context.pkgs_data, context.provided_names)
-                res.to_update = [self._map_requirement(context.to_update[pdata[0]], context, installed_sizes) for pdata in sorted_pkgs]
+                res.to_upgrade = [self._map_requirement(context.to_update[pdata[0]], context, installed_sizes) for pdata in sorted_pkgs]
             else:
-                res.to_update = [self._map_requirement(p, context, installed_sizes) for p in context.to_update.values()]
+                res.to_upgrade = [self._map_requirement(p, context, installed_sizes) for p in context.to_update.values()]
 
         if context.to_remove:
             res.to_remove = [p for p in context.to_remove.values()]
 
-        if context.cannot_update:
-            res.cannot_update = [p for p in context.cannot_update.keys()]
+        if context.cannot_upgrade:
+            res.cannot_upgrade = [p for p in context.cannot_upgrade.keys()]
 
         if context.to_install:
             res.to_install = [self._map_requirement(p, context) for p in context.to_install.values()]

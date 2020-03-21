@@ -30,6 +30,12 @@ class ProcessWatcher:
         """
         pass
 
+    def request_reboot(self, msg: str) -> bool:
+        """
+        :return: requests a system reboot
+        """
+        pass
+
     def show_message(self, title: str, body: str, type_: MessageType = MessageType.INFO):
         """
         shows a message to the user. In the current GUI implementation, it shows a popup.

@@ -4,7 +4,7 @@ from datetime import datetime
 from threading import Thread
 from typing import List, Set, Type
 
-from bauh.api.abstract.controller import SoftwareManager, SearchResult, ApplicationContext
+from bauh.api.abstract.controller import SoftwareManager, SearchResult, ApplicationContext, UpgradeRequirements
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import SoftwarePackage, PackageHistory, PackageUpdate, PackageSuggestion, \
@@ -129,7 +129,7 @@ class SnapManager(SoftwareManager):
     def downgrade(self, pkg: SnapApplication, root_password: str, watcher: ProcessWatcher) -> bool:
         return ProcessHandler(watcher).handle(SystemProcess(subproc=snap.downgrade_and_stream(pkg.name, root_password), wrong_error_phrase=None))
 
-    def update(self, pkg: SnapApplication, root_password: str, watcher: ProcessWatcher) -> SystemProcess:
+    def upgrade(self, requirements: UpgradeRequirements, root_password: str, watcher: ProcessWatcher) -> SystemProcess:
         raise Exception("'update' is not supported by {}".format(pkg.__class__.__name__))
 
     def uninstall(self, pkg: SnapApplication, root_password: str, watcher: ProcessWatcher) -> bool:

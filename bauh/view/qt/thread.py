@@ -8,7 +8,7 @@ import requests
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from bauh.api.abstract.cache import MemoryCache
-from bauh.api.abstract.controller import SoftwareManager, UpdateRequirement, UpdateRequirements
+from bauh.api.abstract.controller import SoftwareManager, UpgradeRequirement
 from bauh.api.abstract.handler import ProcessWatcher
 from bauh.api.abstract.model import PackageStatus, SoftwarePackage, CustomSoftwareAction
 from bauh.api.abstract.view import MessageType, MultipleSelectComponent, InputOption, TextComponent, \
@@ -101,16 +101,26 @@ class AsyncAction(QThread, ProcessWatcher):
     def disable_progress_controll(self):
         self.signal_progress_control.emit(False)
 
+    def request_reboot(self, msg: str) -> bool:
+        if self.request_confirmation(title=self.i18n['action.request_reboot.title'],
+                                     body=msg,
+                                     confirmation_label=self.i18n['yes'].capitalize(),
+                                     deny_label=self.i18n['bt.not_now']):
+            ProcessHandler(self).handle_simple(SimpleProcess(['reboot']))
+            return True
 
-class UpdateSelectedPackages(AsyncAction):
+        return False
+
+
+class UpgradeSelected(AsyncAction):
 
     def __init__(self, manager: SoftwareManager, i18n: I18n, pkgs: List[PackageView] = None):
-        super(UpdateSelectedPackages, self).__init__()
+        super(UpgradeSelected, self).__init__()
         self.pkgs = pkgs
         self.manager = manager
         self.i18n = i18n
 
-    def _req_as_option(self, req: UpdateRequirement, tooltip: bool = True, custom_tooltip: str = None) -> InputOption:
+    def _req_as_option(self, req: UpgradeRequirement, tooltip: bool = True, custom_tooltip: str = None) -> InputOption:
         if req.pkg.installed:
             icon_path = req.pkg.get_disk_icon_path()
 
@@ -149,7 +159,7 @@ class UpdateSelectedPackages(AsyncAction):
 
         return to_update, requires_root
 
-    def _sum_pkgs_size(self, reqs: List[UpdateRequirement]) -> Tuple[int, int]:
+    def _sum_pkgs_size(self, reqs: List[UpgradeRequirement]) -> Tuple[int, int]:
         required, extra = 0, 0
         for r in reqs:
             if r.required_size is not None:
@@ -160,13 +170,13 @@ class UpdateSelectedPackages(AsyncAction):
 
         return required, extra
 
-    def _gen_cannot_update_form(self, reqs: List[UpdateRequirement]) -> FormComponent:
+    def _gen_cannot_update_form(self, reqs: List[UpgradeRequirement]) -> FormComponent:
         opts = [self._req_as_option(r.pkg, False, r.reason) for r in reqs]
         comps = [MultipleSelectComponent(label='', options=opts, default_options=set(opts))]
 
         return FormComponent(label=self.i18n['action.update.cannot_update_label'], components=comps)
 
-    def _gen_to_install_form(self, reqs: List[UpdateRequirement]) -> Tuple[FormComponent, Tuple[int, int]]:
+    def _gen_to_install_form(self, reqs: List[UpgradeRequirement]) -> Tuple[FormComponent, Tuple[int, int]]:
         opts = [self._req_as_option(r) for r in reqs]
         comps = [MultipleSelectComponent(label='', options=opts, default_options=set(opts))]
         required_size, extra_size = self._sum_pkgs_size(reqs)
@@ -180,7 +190,7 @@ class UpdateSelectedPackages(AsyncAction):
                                                     '?' if required_size is None else get_human_size_str(required_size))
         return FormComponent(label=lb, components=comps), (required_size, extra_size)
 
-    def _gen_to_remove_form(self, reqs: List[UpdateRequirement]) -> FormComponent:
+    def _gen_to_remove_form(self, reqs: List[UpgradeRequirement]) -> FormComponent:
         opts = [self._req_as_option(r, False, r.reason) for r in reqs]
         comps = [MultipleSelectComponent(label='', options=opts, default_options=set(opts))]
         required_size, extra_size = self._sum_pkgs_size(reqs)
@@ -192,7 +202,7 @@ class UpdateSelectedPackages(AsyncAction):
                                             '?' if extra_size is None else get_human_size_str(-extra_size))
         return FormComponent(label=lb, components=comps)
 
-    def _gen_to_update_form(self, reqs: List[UpdateRequirement]) -> Tuple[FormComponent, Tuple[int, int]]:
+    def _gen_to_update_form(self, reqs: List[UpgradeRequirement]) -> Tuple[FormComponent, Tuple[int, int]]:
         opts = [self._req_as_option(r, tooltip=False) for r in reqs]
         comps = [MultipleSelectComponent(label='', options=opts, default_options=set(opts))]
         required_size, extra_size = self._sum_pkgs_size(reqs)
@@ -256,22 +266,19 @@ class UpdateSelectedPackages(AsyncAction):
 
         models = [view.model for view in to_update]
 
-        if bool(app_config['updates']['pre_dependency_checking']):
-            self.change_substatus(self.i18n['action.update.requirements.status'])
-            sort = bool(app_config['updates']['sort_packages'])
-            requirements = self.manager.get_update_requirements(models, root_password, sort, self)
+        self.change_substatus(self.i18n['action.update.requirements.status'])
+        sort = bool(app_config['updates']['sort_packages'])
+        requirements = self.manager.get_upgrade_requirements(models, root_password, sort, self)
 
-            if not requirements:
-                self.pkgs = None
-                self.notify_finished({'success': success, 'updated': updated, 'types': updated_types})
-                return
-        else:
-            requirements = UpdateRequirements(to_update=models, to_install=[], to_remove=[], cannot_update=[])
+        if not requirements:
+            self.pkgs = None
+            self.notify_finished({'success': success, 'updated': updated, 'types': updated_types})
+            return
 
         comps, required_size, extra_size = [], 0, 0
 
-        if requirements.cannot_update:
-            comps.append(self._gen_cannot_update_form(requirements.cannot_update))
+        if requirements.cannot_upgrade:
+            comps.append(self._gen_cannot_update_form(requirements.cannot_upgrade))
 
         if requirements.to_install:
             req_form, reqs_size = self._gen_to_install_form(requirements.to_install)
@@ -282,7 +289,7 @@ class UpdateSelectedPackages(AsyncAction):
         if requirements.to_remove:
             comps.append(self._gen_to_remove_form(requirements.to_remove))
 
-        updates_form, updates_size = self._gen_to_update_form(requirements.to_update)
+        updates_form, updates_size = self._gen_to_update_form(requirements.to_upgrade)
         required_size += updates_size[0]
         extra_size += updates_size[1]
         comps.append(updates_form)
@@ -298,36 +305,21 @@ class UpdateSelectedPackages(AsyncAction):
             self.pkgs = None
             return
 
-        if requirements.to_install:
-            for req in requirements.to_install:
-                if not self.manager.install(req.pkg, root_password, self):
-                    self.notify_finished({'success': False, 'updated': 0, 'types': set()})
-                    self.pkgs = None
-                    label = '{}{}'.format(req.pkg.name, ' ( {} )'.format(req.pkg.version) if req.pkg.version else '')
-                    self.show_message(title=self.i18n['action.update.install_req.fail.title'],
-                                      body=self.i18n['action.update.install_req.fail.body'].format(label),
-                                      type_=MessageType.ERROR)
-                    self.notify_finished({'success': success, 'updated': updated, 'types': updated_types})
-                    return
-
-        for req in requirements.to_update:
-            self.change_substatus('')
-            name = req.pkg.name if not RE_VERSION_IN_NAME.findall(req.pkg.name) else req.pkg.name.split('version')[0].strip()
-
-            self.change_status('{} {} {}...'.format(self.i18n['manage_window.status.upgrading'], name, req.pkg.version))
-            success = bool(self.manager.update(req.pkg, root_password, self))
-            self.change_substatus('')
-
-            if not success:
-                break
-            else:
-                updated += 1
-                updated_types.add(req.__class__)
-                self.signal_output.emit('\n')
+        self.change_substatus('')
+        success = bool(self.manager.upgrade(requirements, root_password, self))
+        self.change_substatus('')
 
         if success:
+            updated = len(requirements.to_upgrade)
+            updated_types.add(req.pkg.__class__ for req in requirements.to_upgrade)
+
             if read_config()['disk']['trim_after_update']:
                 self.change_substatus(self.i18n['action.disk_trim'].capitalize())
+
+            msg = '<p>{}</p><br/>{}</p><p>{}</p>'.format(self.i18n['action.update.success.reboot.line1'],
+                                                         self.i18n['action.update.success.reboot.line2'],
+                                                         self.i18n['action.update.success.reboot.line3'])
+            self.request_reboot(msg)
 
         self.notify_finished({'success': success, 'updated': updated, 'types': updated_types})
         self.pkgs = None

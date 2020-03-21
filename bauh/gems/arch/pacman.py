@@ -739,3 +739,20 @@ def list_provided(pkgs: Iterable[str], remote: bool) -> Dict[str, str]:
                                 res[word_split[0]] = latest_name
 
         return res
+
+
+def upgrade_several(pkgnames: Iterable[str], root_password: str) -> SystemProcess:
+    cmd = ['pacman', '-S', *pkgnames, '--noconfirm']
+    if root_password:
+        return SystemProcess(new_root_subprocess(cmd, root_password), wrong_error_phrase='warning:')
+    else:
+        return SystemProcess(new_subprocess(cmd), wrong_error_phrase='warning:')
+
+
+def remove_several(pkgnames: Iterable[str], root_password: str) -> SystemProcess:
+    cmd = ['pacman', '-R', *pkgnames, '--noconfirm']
+    if root_password:
+        return SystemProcess(new_root_subprocess(cmd, root_password), wrong_error_phrase='warning:')
+    else:
+        return SystemProcess(new_subprocess(cmd), wrong_error_phrase='warning:')
+

@@ -173,3 +173,6 @@ arch.update_summary.to_install.dep_conflict=Conflict between the dependencies {}
 arch.update_summary.to_update.conflicts_dep=Conflicts with the dependency {} of {}
 arch.update_summary.to_update.dep_conflicts=Dependency {} conflicts with {}
 arch.update_summary.conflict_between=Conflict between {} and {}
+arch.upgrade.upgrade_repo_pkgs=Upgrading repositories packages
+arch,upgrade.caching_pkgs_data=Caching upgrades data
+arch.upgrade.upgrade_aur_pkgs=Upgrading AUR packages

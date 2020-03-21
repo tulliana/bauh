@@ -28,7 +28,7 @@ class SearchResult:
         self.total = total
 
 
-class UpdateRequirement:
+class UpgradeRequirement:
 
     def __init__(self, pkg: SoftwarePackage, reason: str = None, required_size: int = None, extra_size: int = None):
         """
@@ -44,20 +44,20 @@ class UpdateRequirement:
         self.extra_size = extra_size
 
 
-class UpdateRequirements:
+class UpgradeRequirements:
 
-    def __init__(self, to_install: List[UpdateRequirement], to_remove: List[UpdateRequirement],
-                 to_update: List[UpdateRequirement], cannot_update: List[SoftwarePackage]):
+    def __init__(self, to_install: List[UpgradeRequirement], to_remove: List[UpgradeRequirement],
+                 to_upgrade: List[UpgradeRequirement], cannot_upgrade: List[SoftwarePackage]):
         """
         :param to_install: additional packages that must be installed with the upgrade
         :param to_remove: non upgrading packages that should be removed due to conflicts with upgrading packages
-        :param to_update: the final packages to update
-        :param cannot_update: packages which conflict with each other
+        :param to_upgrade: the final packages to update
+        :param cannot_upgrade: packages which conflict with each other
         """
         self.to_install = to_install
         self.to_remove = to_remove  # when an upgrading package conflicts with a not upgrading package ( check all the non-upgrading packages deps an add here [including those selected to upgrade as well]
-        self.to_update = to_update
-        self.cannot_update = cannot_update
+        self.to_upgrade = to_upgrade
+        self.cannot_upgrade = cannot_upgrade
 
 
 class SoftwareManager(ABC):
@@ -115,7 +115,7 @@ class SoftwareManager(ABC):
         if pkg.supports_disk_cache() and os.path.exists(pkg.get_disk_cache_path()):
             shutil.rmtree(pkg.get_disk_cache_path())
 
-    def get_update_requirements(self, pkgs: List[SoftwarePackage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpdateRequirements:
+    def get_upgrade_requirements(self, pkgs: List[SoftwarePackage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpgradeRequirements:
         """
         return additional required software that needs to be installed / removed / updated before updating a list of packages
         :param pkgs:
@@ -123,12 +123,12 @@ class SoftwareManager(ABC):
         :param if the packages to be sorted
         :return:
         """
-        return UpdateRequirements(None, None, [UpdateRequirement(p) for p in pkgs], None)
+        return UpgradeRequirements(None, None, [UpgradeRequirement(p) for p in pkgs], None)
 
     @abstractmethod
-    def update(self, pkg: SoftwarePackage, root_password: str, watcher: ProcessWatcher) -> bool:
+    def upgrade(self, requirements: UpgradeRequirements, root_password: str, watcher: ProcessWatcher) -> bool:
         """
-        :param pkg:
+        :param requirements:
         :param root_password: the root user password (if required)
         :param watcher:
         :return:

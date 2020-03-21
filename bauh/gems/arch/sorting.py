@@ -111,7 +111,24 @@ def sort(pkgs: Iterable[str], pkgs_data: Dict[str, dict], provided_map: Dict[str
             sorted_names.add(pkg)
             sorted_list.insert(idx, pkg)
 
-    return [(n, pkgs_data[n]['r']) for n in sorted_list]
+    # putting aur pkgs in the end:
+    aur_pkgs = None
+    res = []
+
+    for name in sorted_list:
+        repo = pkgs_data[name]['r']
+        if repo == 'aur':
+            if not aur_pkgs:
+                aur_pkgs = []
+
+            aur_pkgs.append((name, 'aur'))
+        else:
+            res.append((name, repo))
+
+    if aur_pkgs:
+        res.extend(aur_pkgs)
+
+    return res
 
 
 def _index_pkg(name: str, sorted_list: List[str], sorted_names: Set[str], deps_map: Dict[str, Set[str]], ignore_not_sorted: bool) -> int:

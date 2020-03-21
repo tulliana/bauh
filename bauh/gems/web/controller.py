@@ -17,7 +17,7 @@ from colorama import Fore
 from requests import exceptions, Response
 
 from bauh.api.abstract.context import ApplicationContext
-from bauh.api.abstract.controller import SoftwareManager, SearchResult
+from bauh.api.abstract.controller import SoftwareManager, SearchResult, UpgradeRequirements
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import SoftwarePackage, CustomSoftwareAction, PackageSuggestion, PackageUpdate, \
@@ -338,7 +338,7 @@ class WebApplicationManager(SoftwareManager):
     def downgrade(self, pkg: SoftwarePackage, root_password: str, handler: ProcessWatcher) -> bool:
         pass
 
-    def update(self, pkg: SoftwarePackage, root_password: str, watcher: ProcessWatcher) -> bool:
+    def upgrade(self, requirements: UpgradeRequirements, root_password: str, watcher: ProcessWatcher) -> bool:
         pass
 
     def uninstall(self, pkg: WebApplication, root_password: str, watcher: ProcessWatcher) -> bool:

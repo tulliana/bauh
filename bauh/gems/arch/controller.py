@@ -15,7 +15,7 @@ from typing import List, Set, Type, Tuple, Dict
 
 import requests
 
-from bauh.api.abstract.controller import SearchResult, SoftwareManager, ApplicationContext, UpdateRequirements
+from bauh.api.abstract.controller import SearchResult, SoftwareManager, ApplicationContext, UpgradeRequirements
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import PackageUpdate, PackageHistory, SoftwarePackage, PackageSuggestion, PackageStatus, \
@@ -38,7 +38,7 @@ from bauh.gems.arch.depedencies import DependenciesAnalyser
 from bauh.gems.arch.exceptions import PackageNotFoundException
 from bauh.gems.arch.mapper import ArchDataMapper
 from bauh.gems.arch.model import ArchPackage
-from bauh.gems.arch.updates import UpdatesSummarizer
+from bauh.gems.arch.updates import UpdatesSummarizer, UpgradeOutputStatusHandler
 from bauh.gems.arch.worker import AURIndexUpdater, ArchDiskCacheUpdater, ArchCompilationOptimizer, SyncDatabases, \
     RefreshMirrors
 
@@ -443,6 +443,8 @@ class ArchManager(SoftwareManager):
         return False
 
     def _downgrade_repo_pkg(self, pkg: ArchPackage, root_password: str, handler: ProcessHandler):
+        self._sync_databases(root_password=root_password, handler=handler)
+
         handler.watcher.change_substatus(self.i18n['arch.downgrade.searching_stored'])
         if not os.path.isdir('/var/cache/pacman/pkg'):
             handler.watcher.show_message(title=self.i18n['arch.downgrade.error'],
@@ -523,16 +525,84 @@ class ArchManager(SoftwareManager):
             return False
         return True
 
-    def update(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher) -> bool:
-        if not self._check_action_allowed(pkg, watcher):
+    def upgrade(self, requirements: UpgradeRequirements, root_password: str, watcher: ProcessWatcher) -> bool:
+        watcher.change_status("{}...".format(self.i18n['manage_window.status.upgrading']))
+
+        aur_pkgs, repo_pkgs = [], []
+
+        for req in (*requirements.to_install, *requirements.to_upgrade):
+            if req.pkg.repository == 'aur':
+                aur_pkgs.append(req.pkg)
+            else:
+                repo_pkgs.append(req.pkg)
+
+        if aur_pkgs and not self._check_action_allowed(aur_pkgs[0], watcher):
             return False
 
+        handler = ProcessHandler(watcher)
         self.local_config = read_config()
+        self._sync_databases(root_password=root_password, handler=handler)
 
-        try:
-            return self.install(pkg=pkg, root_password=root_password, watcher=watcher, skip_optdeps=True)
-        finally:
-            self.local_config = None
+        if requirements.to_remove:
+            to_remove_names = {r.pkg.name for r in requirements.to_remove}
+            try:
+                success = handler.handle(pacman.remove_several(to_remove_names, root_password))
+
+                if not success:
+                    self.logger.error("Could not remove packages: {}".format(', '.join(to_remove_names)))
+                    return False
+            except:
+                self.logger.error("An error occured while removing packages: {}".format(', '.join(to_remove_names)))
+                traceback.print_exc()
+                return False
+
+        if repo_pkgs:
+            repo_pkgs_names = [p.name for p in repo_pkgs]
+            watcher.change_status('{}...'.format(self.i18n['arch.upgrade.upgrade_repo_pkgs']))
+            self.logger.info("Upgrading {} repository packages: {}".format(len(repo_pkgs_names),
+                                                                           ', '.join(repo_pkgs_names)))
+
+            try:
+                output_handler = UpgradeOutputStatusHandler(watcher, self.i18n)
+                success = handler.handle(pacman.upgrade_several(repo_pkgs_names, root_password), output_handler=output_handler.handle)
+                watcher.change_substatus('')
+
+                if success:
+                    watcher.print("Repository packages successfully upgraded")
+                    watcher.change_substatus(self.i18n['arch,upgrade.caching_pkgs_data'])
+                    repo_map = pacman.map_repositories(repo_pkgs_names)
+                    disk.save_several(repo_pkgs_names, repo_map=repo_map, overwrite=True, maintainer=None)
+
+                else:
+                    self.logger.error("An error occurred while upgrading repository packages")
+                    self.local_config = None
+                    return False
+            except:
+                watcher.change_substatus('')
+                watcher.print("An error occurred while upgrading repository packages")
+                self.logger.error("An error occurred while upgrading repository packages")
+                traceback.print_exc()
+                self.local_config = None
+                return False
+
+        watcher.change_status('{}...'.format(self.i18n['arch.upgrade.upgrade_aur_pkgs']))
+        if aur_pkgs:
+            for pkg in aur_pkgs:
+                watcher.change_substatus("{} {} ({})...".format(self.i18n['manage_window.status.upgrading'], pkg.name, pkg.version))
+
+                try:
+                    if not self.install(pkg=pkg, root_password=root_password, watcher=watcher, skip_optdeps=True):
+                        self.logger.error("Could not upgrade AUR package '{}'".format(pkg.name))
+                        watcher.change_substatus('')
+                        return False
+                except:
+                    watcher.change_substatus('')
+                    self.logger.error("An error occurred when upgrading AUR package '{}'".format(pkg.name))
+                    traceback.print_exc()
+                    return False
+
+        watcher.change_substatus('')
+        return True
 
     def _uninstall(self, pkg_name: str, root_password: str, handler: ProcessHandler) -> bool:
         res = handler.handle(SystemProcess(new_root_subprocess(['pacman', '-R', pkg_name, '--noconfirm'], root_password)))
@@ -1178,9 +1248,11 @@ class ArchManager(SoftwareManager):
 
         return False
 
-    def _sync_databases(self, root_password: str, handler: ProcessHandler):
+    def _sync_databases(self, root_password: str, handler: ProcessHandler, change_substatus: bool = True):
         if self.local_config['sync_databases'] and database.should_sync(self.local_config, handler, self.logger):
-            handler.watcher.change_substatus(self.i18n['arch.sync_databases.substatus'])
+            if change_substatus:
+                handler.watcher.change_substatus(self.i18n['arch.sync_databases.substatus'])
+
             synced, output = handler.handle_simple(pacman.sync_databases(root_password=root_password,
                                                                          force=True))
             if synced:
@@ -1490,11 +1562,14 @@ class ArchManager(SoftwareManager):
         except:
             return False, [traceback.format_exc()]
 
-    def get_update_requirements(self, pkgs: List[ArchPackage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpdateRequirements:
+    def get_upgrade_requirements(self, pkgs: List[ArchPackage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpgradeRequirements:
+        self.local_config = read_config()
+        self._sync_databases(root_password, handler=ProcessHandler(watcher), change_substatus=False)
         self.aur_client.clean_caches()
         try:
             return UpdatesSummarizer(self.aur_client, self.i18n, self.logger, self.deps_analyser, watcher).summarize(pkgs, sort, root_password)
         except PackageNotFoundException:
+            self.local_config = None
             pass  # when nothing is returned, the upgrade is called off by the UI
 
     def get_custom_actions(self) -> List[CustomSoftwareAction]:
@@ -1614,15 +1689,11 @@ class ArchManager(SoftwareManager):
         success, output = handler.handle_simple(pacman.upgrade_system(root_password))
 
         if success:
-            msg = '<p>{}</p><br/>{}</p><p>{}</p>'.format(self.i18n['arch.custom_action.upgrade_system.success.line1'],
-                                                            self.i18n['arch.custom_action.upgrade_system.success.line2'],
-                                                            self.i18n['arch.custom_action.upgrade_system.success.line3'])
-            if watcher.request_confirmation(title=self.i18n['arch.custom_action.upgrade_system'],
-                                            body=msg,
-                                            confirmation_label=self.i18n['yes'].capitalize(),
-                                            deny_label=self.i18n['bt.not_now']):
-                handler.handle_simple(SimpleProcess(['reboot']))
-                return True
+            msg = '<p>{}</p><br/>{}</p><p>{}</p>'.format(self.i18n['action.update.success.reboot.line1'],
+                                                         self.i18n['action.update.success.reboot.line2'],
+                                                         self.i18n['action.update.success.reboot.line3'])
+            watcher.request_reboot(msg)
+            return True
         else:
             watcher.show_message(title=self.i18n['arch.custom_action.upgrade_system'],
                                  body="An error occurred during the upgrade process. Check out the {}".format(bold('Details')),

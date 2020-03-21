@@ -5,7 +5,8 @@ import traceback
 from threading import Thread
 from typing import List, Set, Type, Tuple, Dict
 
-from bauh.api.abstract.controller import SoftwareManager, SearchResult, ApplicationContext, UpdateRequirements
+from bauh.api.abstract.controller import SoftwareManager, SearchResult, ApplicationContext, UpgradeRequirements, \
+    UpgradeRequirement
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import SoftwarePackage, PackageUpdate, PackageHistory, PackageSuggestion, \
@@ -16,6 +17,16 @@ from bauh.commons import internet
 from bauh.view.core.settings import GenericSettingsManager
 
 RE_IS_URL = re.compile(r'^https?://.+')
+
+
+class GenericUpgradeRequirements(UpgradeRequirements):
+
+    def __init__(self, to_install: List[UpgradeRequirement], to_remove: List[UpgradeRequirement],
+                 to_upgrade: List[UpgradeRequirement], cannot_upgrade: List[SoftwarePackage],
+                 sub_requirements: Dict[SoftwareManager, UpgradeRequirements]):
+        super(GenericUpgradeRequirements, self).__init__(to_install=to_install, to_upgrade=to_upgrade,
+                                                         to_remove=to_remove, cannot_upgrade=cannot_upgrade)
+        self.sub_requirements = sub_requirements
 
 
 class GenericSoftwareManager(SoftwareManager):
@@ -231,11 +242,12 @@ class GenericSoftwareManager(SoftwareManager):
         if man:
             return man.clean_cache_for(app)
 
-    def update(self, app: SoftwarePackage, root_password: str, handler: ProcessWatcher) -> bool:
-        man = self._get_manager_for(app)
+    def upgrade(self, requirements: GenericUpgradeRequirements, root_password: str, handler: ProcessWatcher) -> bool:
+        for man, man_reqs in requirements.sub_requirements.items():
+            res = man.upgrade(man_reqs, root_password, handler)
 
-        if man:
-            return man.update(app, root_password, handler)
+            if not res:
+                return False
 
     def uninstall(self, app: SoftwarePackage, root_password: str, handler: ProcessWatcher) -> bool:
         man = self._get_manager_for(app)
@@ -445,14 +457,14 @@ class GenericSoftwareManager(SoftwareManager):
 
         return by_manager
 
-    def get_update_requirements(self, pkgs: List[SoftwarePackage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpdateRequirements:
+    def get_upgrade_requirements(self, pkgs: List[SoftwarePackage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpgradeRequirements:
         by_manager = self._map_pkgs_by_manager(pkgs)
-        res = UpdateRequirements([], [], [], [])
+        res = GenericUpgradeRequirements([], [], [], [], {})
 
         if by_manager:
             for man, pkgs in by_manager.items():
                 ti = time.time()
-                man_reqs = man.get_update_requirements(pkgs, root_password, sort, watcher)
+                man_reqs = man.get_upgrade_requirements(pkgs, root_password, sort, watcher)
                 tf = time.time()
                 self.logger.info(man.__class__.__name__ + " took {0:.2f} seconds".format(tf - ti))
 
@@ -460,17 +472,18 @@ class GenericSoftwareManager(SoftwareManager):
                     return  # it means the process should be stopped
 
                 if man_reqs:
+                    res.sub_requirements[man] = man_reqs
                     if man_reqs.to_install:
                         res.to_install.extend(man_reqs.to_install)
 
                     if man_reqs.to_remove:
                         res.to_remove.extend(man_reqs.to_remove)
 
-                    if man_reqs.to_update:
-                        res.to_update.extend(man_reqs.to_update)
+                    if man_reqs.to_upgrade:
+                        res.to_upgrade.extend(man_reqs.to_upgrade)
 
-                    if man_reqs.cannot_update:
-                        res.cannot_update.extend(man_reqs.cannot_update)
+                    if man_reqs.cannot_upgrade:
+                        res.cannot_upgrade.extend(man_reqs.cannot_upgrade)
 
         return res
 

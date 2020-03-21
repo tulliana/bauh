@@ -4,8 +4,8 @@ from math import floor
 from threading import Thread
 from typing import List, Set, Type, Tuple
 
-from bauh.api.abstract.controller import SearchResult, SoftwareManager, ApplicationContext, UpdateRequirements, \
-    UpdateRequirement
+from bauh.api.abstract.controller import SearchResult, SoftwareManager, ApplicationContext, UpgradeRequirements, \
+    UpgradeRequirement
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import PackageHistory, PackageUpdate, SoftwarePackage, PackageSuggestion, \
@@ -186,18 +186,35 @@ class FlatpakManager(SoftwareManager):
         super(FlatpakManager, self).clean_cache_for(pkg)
         self.api_cache.delete(pkg.id)
 
-    def update(self, pkg: FlatpakApplication, root_password: str, watcher: ProcessWatcher) -> bool:
-        related, deps = False, False
-        ref = pkg.ref
+    def upgrade(self, requirements: UpgradeRequirements, root_password: str, watcher: ProcessWatcher) -> bool:
+        flatpak_version = flatpak.get_version()
+        for req in requirements.to_upgrade:
+            watcher.change_status("{} {} ({})...".format(self.i18n['manage_window.status.upgrading'], req.pkg.name, req.pkg.version))
+            related, deps = False, False
+            ref = req.pkg.ref
 
-        if pkg.partial and flatpak.get_version() < '1.5':
-            related, deps = True, True
-            ref = pkg.base_ref
+            if req.pkg.partial and flatpak_version < '1.5':
+                related, deps = True, True
+                ref = req.pkg.base_ref
 
-        return ProcessHandler(watcher).handle(SystemProcess(subproc=flatpak.update(app_ref=ref,
-                                                                                   installation=pkg.installation,
-                                                                                   related=related,
-                                                                                   deps=deps)))
+            try:
+                res = ProcessHandler(watcher).handle(SystemProcess(subproc=flatpak.update(app_ref=ref,
+                                                                                          installation=req.pkg.installation,
+                                                                                          related=related,
+                                                                                          deps=deps)))
+
+                watcher.change_substatus('')
+                if not res:
+                    self.logger.warning("Could not upgrade '{}'".format(req.pkg.id))
+                    return False
+            except:
+                watcher.change_substatus('')
+                self.logger.error("An error occurred while upgrading '{}'".format(req.pkg.id))
+                traceback.print_exc()
+                return False
+
+        watcher.change_substatus('')
+        return True
 
     def uninstall(self, pkg: FlatpakApplication, root_password: str, watcher: ProcessWatcher) -> bool:
         uninstalled = ProcessHandler(watcher).handle(SystemProcess(subproc=flatpak.uninstall(pkg.ref, pkg.installation)))
@@ -471,7 +488,7 @@ class FlatpakManager(SoftwareManager):
         except:
             return False, [traceback.format_exc()]
 
-    def get_update_requirements(self, pkgs: List[FlatpakApplication], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpdateRequirements:
+    def get_upgrade_requirements(self, pkgs: List[FlatpakApplication], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpgradeRequirements:
         flatpak_version = flatpak.get_version()
 
         user_pkgs, system_pkgs = [], []
@@ -491,7 +508,7 @@ class FlatpakManager(SoftwareManager):
                         p.size = sizes.get(str(p.id))
 
         to_update = self.sort_update_order(pkgs) if sort else pkgs
-        return UpdateRequirements(None, None, [UpdateRequirement(pkg=p, extra_size=p.size, required_size=p.size) for p in to_update], [])
+        return UpgradeRequirements(None, None, [UpgradeRequirement(pkg=p, extra_size=p.size, required_size=p.size) for p in to_update], [])
 
     def sort_update_order(self, pkgs: List[FlatpakApplication]) -> List[FlatpakApplication]:
         partials, runtimes, apps = [], [], []

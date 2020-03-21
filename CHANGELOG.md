@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - new parameters
     - `--settings`: opens only the settings panel
 - now the root password is asked only once ( can be disabled through the new settings property `store_root_password` )
+- new upgrade model: now all packages selected to upgrade are handled at once by the underlying gem
 - Arch
     - dialog design when the package cannot be uninstalled due to required packages
     - dependency checking algorithm: 
@@ -52,6 +53,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - sorting algorithm was providing wrong results for some cases
 
 ### Settings
+- Default
+    - **pre_dependency_checking** dropped ( now is always enabled )
 - Arch / AUR:
     - **transitive_checking** dropped ( now is always enabled )
 

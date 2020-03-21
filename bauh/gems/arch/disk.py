@@ -1,9 +1,8 @@
 import json
 import os
 import re
-import time
 from pathlib import Path
-from typing import Set, List, Dict
+from typing import List, Dict, Iterable
 
 from bauh.gems.arch import pacman
 from bauh.gems.arch.model import ArchPackage
@@ -49,7 +48,7 @@ def set_icon_path(pkg: ArchPackage, icon_name: str = None):
                 break
 
 
-def save_several(pkgnames: Set[str], repo_map: Dict[str, str], overwrite: bool = True, maintainer: str = None,
+def save_several(pkgnames: Iterable[str], repo_map: Dict[str, str], overwrite: bool = True, maintainer: str = None,
                  categories: dict = None, when_prepared=None, after_written=None) -> int:
     if overwrite:
         to_cache = pkgnames
@@ -167,7 +166,9 @@ def save_several(pkgnames: Set[str], repo_map: Dict[str, str], overwrite: bool =
             if categories:
                 p.categories = categories.get(p.name)
 
-            p.maintainer = maintainer
+            if maintainer and not p.maintainer:
+                p.maintainer = maintainer
+
             write(p)
 
             if after_written:

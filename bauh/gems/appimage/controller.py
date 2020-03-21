@@ -15,7 +15,7 @@ from typing import Set, Type, List, Tuple
 from colorama import Fore
 
 from bauh.api.abstract.context import ApplicationContext
-from bauh.api.abstract.controller import SoftwareManager, SearchResult, UpdateRequirements, UpdateRequirement
+from bauh.api.abstract.controller import SoftwareManager, SearchResult, UpgradeRequirements, UpgradeRequirement
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import SoftwarePackage, PackageHistory, PackageUpdate, PackageSuggestion, \
@@ -130,7 +130,9 @@ class AppImageManager(SoftwareManager):
 
         pkg.local_file_path = file_chooser.file_path
         pkg.version = input_version.get_value()
-        return self.update(pkg=pkg, root_password=root_password, watcher=watcher)
+
+        reqs = UpgradeRequirements(to_install=None, to_remove=None, to_upgrade=[pkg], cannot_upgrade=None)
+        return self.upgrade(reqs, root_password=root_password, watcher=watcher)
 
     def _get_db_connection(self, db_path: str) -> sqlite3.Connection:
         if os.path.exists(db_path):
@@ -268,18 +270,25 @@ class AppImageManager(SoftwareManager):
 
             return False
 
-    def update(self, pkg: AppImage, root_password: str, watcher: ProcessWatcher) -> bool:
-        if not self.uninstall(pkg, root_password, watcher):
-            watcher.show_message(title=self.i18n['error'],
-                                 body=self.i18n['appimage.error.uninstall_current_version'],
-                                 type_=MessageType.ERROR)
-            return False
+    def upgrade(self, requirements: UpgradeRequirements, root_password: str, watcher: ProcessWatcher) -> bool:
+        for req in requirements.to_upgrade:
+            watcher.change_status("{} {} ({})...".format(self.i18n['manage_window.status.upgrading'], req.pkg.name, req.pkg.version))
 
-        if self.install(pkg, root_password, watcher):
-            self.cache_to_disk(pkg, None, False)
-            return True
+            if not self.uninstall(req.pkg, root_password, watcher):
+                watcher.show_message(title=self.i18n['error'],
+                                     body=self.i18n['appimage.error.uninstall_current_version'],
+                                     type_=MessageType.ERROR)
+                watcher.change_substatus('')
+                return False
 
-        return False
+            if not self.install(req.pkg, root_password, watcher):
+                watcher.change_substatus('')
+                return False
+
+            self.cache_to_disk(req.pkg, None, False)
+
+        watcher.change_substatus('')
+        return True
 
     def uninstall(self, pkg: AppImage, root_password: str, watcher: ProcessWatcher) -> bool:
         if os.path.exists(pkg.get_disk_cache_path()):
@@ -650,11 +659,11 @@ class AppImageManager(SoftwareManager):
     def get_custom_actions(self) -> List[CustomSoftwareAction]:
         return self.custom_actions
 
-    def get_update_requirements(self, pkgs: List[AppImage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpdateRequirements:
+    def get_upgrade_requirements(self, pkgs: List[AppImage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpgradeRequirements:
         to_update = []
 
         for pkg in pkgs:
-            requirement = UpdateRequirement(pkg)
+            requirement = UpgradeRequirement(pkg)
             installed_size = self.http_client.get_content_length_in_bytes(pkg.url_download)
             upgrade_size = self.http_client.get_content_length_in_bytes(pkg.url_download_latest_version)
             requirement.required_size = upgrade_size
@@ -664,4 +673,4 @@ class AppImageManager(SoftwareManager):
 
             to_update.append(requirement)
 
-        return UpdateRequirements([], [], to_update, [])
+        return UpgradeRequirements([], [], to_update, [])
