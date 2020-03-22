@@ -502,9 +502,12 @@ class ArchManager(SoftwareManager):
         if not self._check_action_allowed(pkg, watcher):
             return False
 
-        self.local_config = read_config()
-
         handler = ProcessHandler(watcher)
+
+        if self._is_database_locked(handler, root_password):
+            return False
+
+        self.local_config = read_config()
 
         watcher.change_progress(5)
 
@@ -525,8 +528,43 @@ class ArchManager(SoftwareManager):
             return False
         return True
 
+    def _is_database_locked(self, handler: ProcessHandler, root_password: str) -> bool:
+        if os.path.exists('/var/lib/pacman/db.lck'):
+            handler.watcher.print('pacman database is locked')
+            msg = '<p>{}</p><p>{}</p><br/>'.format(self.i18n['arch.action.db_locked.body.l1'],
+                                                   self.i18n['arch.action.db_locked.body.l2'])
+            if handler.watcher.request_confirmation(title=self.i18n['arch.action.db_locked.title'].capitalize(),
+                                                    body=msg,
+                                                    confirmation_label=self.i18n['arch.action.db_locked.confirmation'].capitalize(),
+                                                    deny_label=self.i18n['cancel'].capitalize()):
+
+                try:
+                    if not handler.handle_simple(SimpleProcess(['rm', '-rf', '/var/lib/pacman/db.lck'], root_password=root_password)):
+                        handler.watcher.show_message(title=self.i18n['error'].capitalize(),
+                                                     body=self.i18n['arch.action.db_locked.error'],
+                                                     type_=MessageType.ERROR)
+                        return True
+                except:
+                    self.logger.error("An error occurred while removing the pacman database lock")
+                    traceback.print_exc()
+                    handler.watcher.show_message(title=self.i18n['error'].capitalize(),
+                                                 body=self.i18n['arch.action.db_locked.error'],
+                                                 type_=MessageType.ERROR)
+                    return True
+            else:
+                handler.watcher.print('Action cancelled by the user. Aborting...')
+                return True
+
+        return False
+
     def upgrade(self, requirements: UpgradeRequirements, root_password: str, watcher: ProcessWatcher) -> bool:
         watcher.change_status("{}...".format(self.i18n['manage_window.status.upgrading']))
+
+        handler = ProcessHandler(watcher)
+
+        if self._is_database_locked(handler, root_password):
+            watcher.change_substatus('')
+            return False
 
         aur_pkgs, repo_pkgs = [], []
 
@@ -539,7 +577,6 @@ class ArchManager(SoftwareManager):
         if aur_pkgs and not self._check_action_allowed(aur_pkgs[0], watcher):
             return False
 
-        handler = ProcessHandler(watcher)
         self.local_config = read_config()
         self._sync_databases(root_password=root_password, handler=handler)
 
@@ -615,9 +652,13 @@ class ArchManager(SoftwareManager):
 
     def uninstall(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher) -> bool:
         self.local_config = read_config()
-        try:
-            handler = ProcessHandler(watcher)
 
+        handler = ProcessHandler(watcher)
+
+        if self._is_database_locked(handler, root_password):
+            return False
+
+        try:
             watcher.change_progress(10)
             info = pacman.get_info_dict(pkg.name)
             watcher.change_progress(50)
@@ -1300,13 +1341,16 @@ class ArchManager(SoftwareManager):
         if not self._check_action_allowed(pkg, watcher):
             return False
 
+        handler = ProcessHandler(watcher)
+
+        if self._is_database_locked(handler, root_password):
+            return False
+
         clean_config = False
 
         if not self.local_config:
             self.local_config = read_config()
             clean_config = True
-
-        handler = ProcessHandler(watcher)
 
         self._sync_databases(root_password=root_password, handler=handler)
 

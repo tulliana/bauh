@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - removing old cached versions from the disk cache when uninstalling a package ( can be disabled on settings -> **clean_cached** )
     - database synchronization on startup ( **enabled by default**. Can be disabled on settings -> **sync_databases_startup** )
     - mirrors refreshing on startup ( **disabled by default**. Can be enabled on settings -> **refresh_mirrors_startup** )
+    - if the pacman database is locked, a dialog is displayed requesting if the database should be unlocked to proceed with the ongoing action
     - custom actions ( available through the new custom actions button )
         - **synchronize packages database**: synchronizes the database against the configured mirrors
         - **refresh mirrors**: allows the user to define multiple mirrors locations, sort by the fastest and update the packages database
