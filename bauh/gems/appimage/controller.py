@@ -659,7 +659,7 @@ class AppImageManager(SoftwareManager):
     def get_custom_actions(self) -> List[CustomSoftwareAction]:
         return self.custom_actions
 
-    def get_upgrade_requirements(self, pkgs: List[AppImage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpgradeRequirements:
+    def get_upgrade_requirements(self, pkgs: List[AppImage], root_password: str, watcher: ProcessWatcher) -> UpgradeRequirements:
         to_update = []
 
         for pkg in pkgs:

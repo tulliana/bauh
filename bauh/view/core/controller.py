@@ -457,14 +457,14 @@ class GenericSoftwareManager(SoftwareManager):
 
         return by_manager
 
-    def get_upgrade_requirements(self, pkgs: List[SoftwarePackage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpgradeRequirements:
+    def get_upgrade_requirements(self, pkgs: List[SoftwarePackage], root_password: str, watcher: ProcessWatcher) -> UpgradeRequirements:
         by_manager = self._map_pkgs_by_manager(pkgs)
         res = GenericUpgradeRequirements([], [], [], [], {})
 
         if by_manager:
             for man, pkgs in by_manager.items():
                 ti = time.time()
-                man_reqs = man.get_upgrade_requirements(pkgs, root_password, sort, watcher)
+                man_reqs = man.get_upgrade_requirements(pkgs, root_password, watcher)
                 tf = time.time()
                 self.logger.info(man.__class__.__name__ + " took {0:.2f} seconds".format(tf - ti))
 

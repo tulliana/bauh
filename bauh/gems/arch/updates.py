@@ -350,7 +350,7 @@ class UpdatesSummarizer:
 
         return requirement
 
-    def summarize(self, pkgs: List[ArchPackage], sort: bool, root_password: str) -> UpgradeRequirements:
+    def summarize(self, pkgs: List[ArchPackage], root_password: str) -> UpgradeRequirements:
         res = UpgradeRequirements(None, [], None, [])
 
         context = UpdateRequirementsContext({}, {}, {}, {}, {}, {}, {}, {}, {}, None, {}, set(), read_config(), root_password)
@@ -389,11 +389,20 @@ class UpdatesSummarizer:
 
         if context.to_update:
             installed_sizes = pacman.get_installed_size(list(context.to_update.keys()))
-            if sort:
-                sorted_pkgs = sorting.sort(context.to_update.keys(), context.pkgs_data, context.provided_names)
-                res.to_upgrade = [self._map_requirement(context.to_update[pdata[0]], context, installed_sizes) for pdata in sorted_pkgs]
-            else:
-                res.to_upgrade = [self._map_requirement(p, context, installed_sizes) for p in context.to_update.values()]
+
+            sorted_pkgs = []
+
+            if context.repo_to_update:  # only sorting by name ( pacman already knows the best order to perform the upgrade )
+                sorted_pkgs.extend(context.repo_to_update.values())
+                sorted_pkgs.sort(key=lambda pkg: pkg.name)
+
+            if context.aur_to_update:  # adding AUR packages in the end
+                sorted_aur = sorting.sort(context.aur_to_update.keys(), context.pkgs_data, context.provided_names)
+
+                for aur_pkg in sorted_aur:
+                    sorted_pkgs.append(context.aur_to_update[aur_pkg[0]])
+
+            res.to_upgrade = [self._map_requirement(pkg, context, installed_sizes) for pkg in sorted_pkgs]
 
         if context.to_remove:
             res.to_remove = [p for p in context.to_remove.values()]

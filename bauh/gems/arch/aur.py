@@ -196,7 +196,7 @@ class AURClient:
         if info:
             provided.add('{}={}'.format(pkgname, info['pkgver']))
             if info.get('provides'):
-                provided.update(srcinfo.get('provides'))
+                provided.update(info.get('provides'))
 
             return {'c': info.get('conflicts'), 's': None, 'p': provided, 'r': 'aur',
                     'v': info['pkgver'], 'd': self.extract_required_dependencies(info)}

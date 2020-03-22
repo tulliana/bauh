@@ -115,12 +115,11 @@ class SoftwareManager(ABC):
         if pkg.supports_disk_cache() and os.path.exists(pkg.get_disk_cache_path()):
             shutil.rmtree(pkg.get_disk_cache_path())
 
-    def get_upgrade_requirements(self, pkgs: List[SoftwarePackage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpgradeRequirements:
+    def get_upgrade_requirements(self, pkgs: List[SoftwarePackage], root_password: str, watcher: ProcessWatcher) -> UpgradeRequirements:
         """
         return additional required software that needs to be installed / removed / updated before updating a list of packages
         :param pkgs:
         :param watcher
-        :param if the packages to be sorted
         :return:
         """
         return UpgradeRequirements(None, None, [UpgradeRequirement(p) for p in pkgs], None)

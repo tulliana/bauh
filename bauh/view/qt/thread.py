@@ -17,7 +17,6 @@ from bauh.api.exception import NoInternetException
 from bauh.commons import user
 from bauh.commons.html import bold
 from bauh.commons.system import get_human_size_str, ProcessHandler, SimpleProcess
-from bauh.view.core import config
 from bauh.view.core.config import read_config
 from bauh.view.qt import commons
 from bauh.view.qt.view_model import PackageView, PackageViewStatus
@@ -207,7 +206,7 @@ class UpgradeSelected(AsyncAction):
         comps = [MultipleSelectComponent(label='', options=opts, default_options=set(opts))]
         required_size, extra_size = self._sum_pkgs_size(reqs)
 
-        lb = '{} ( {}: {}. {}: {}. {}: {} )'.format(self.i18n['action.update.order'].capitalize(),
+        lb = '{} ( {}: {}. {}: {}. {}: {} )'.format(self.i18n['action.update.label_to_upgrade'].capitalize(),
                                                     self.i18n['amount'].capitalize(),
                                                     len(opts),
                                                     self.i18n['size'].capitalize(),
@@ -262,13 +261,10 @@ class UpgradeSelected(AsyncAction):
 
         updated, updated_types = 0, set()
 
-        app_config = config.read_config()
-
         models = [view.model for view in to_update]
 
         self.change_substatus(self.i18n['action.update.requirements.status'])
-        sort = bool(app_config['updates']['sort_packages'])
-        requirements = self.manager.get_upgrade_requirements(models, root_password, sort, self)
+        requirements = self.manager.get_upgrade_requirements(models, root_password, self)
 
         if not requirements:
             self.pkgs = None

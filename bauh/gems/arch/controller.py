@@ -1606,12 +1606,12 @@ class ArchManager(SoftwareManager):
         except:
             return False, [traceback.format_exc()]
 
-    def get_upgrade_requirements(self, pkgs: List[ArchPackage], root_password: str, sort: bool, watcher: ProcessWatcher) -> UpgradeRequirements:
+    def get_upgrade_requirements(self, pkgs: List[ArchPackage], root_password: str, watcher: ProcessWatcher) -> UpgradeRequirements:
         self.local_config = read_config()
         self._sync_databases(root_password, handler=ProcessHandler(watcher), change_substatus=False)
         self.aur_client.clean_caches()
         try:
-            return UpdatesSummarizer(self.aur_client, self.i18n, self.logger, self.deps_analyser, watcher).summarize(pkgs, sort, root_password)
+            return UpdatesSummarizer(self.aur_client, self.i18n, self.logger, self.deps_analyser, watcher).summarize(pkgs, root_password)
         except PackageNotFoundException:
             self.local_config = None
             pass  # when nothing is returned, the upgrade is called off by the UI

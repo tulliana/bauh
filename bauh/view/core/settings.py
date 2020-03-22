@@ -104,12 +104,6 @@ class GenericSettingsManager:
                                                   max_width=default_width,
                                                   id_='trim_after_update')
 
-        select_update_sort = self._gen_bool_component(label=self.i18n['core.config.updates.sort_pkgs'],
-                                                      tooltip=self.i18n['core.config.updates.sort_pkgs.tip'],
-                                                      value=bool(core_config['updates']['sort_packages']),
-                                                      max_width=default_width,
-                                                      id_="up_sort")
-
         select_dep_check = self._gen_bool_component(label=self.i18n['core.config.system.dep_checking'],
                                                     tooltip=self.i18n['core.config.system.dep_checking.tip'],
                                                     value=core_config['system']['single_dependency_checking'],
@@ -122,7 +116,7 @@ class GenericSettingsManager:
                                                    max_width=default_width,
                                                    value=core_config['download']['multithreaded'])
 
-        sub_comps = [FormComponent([select_dcache, select_dmthread, select_trim_up, select_update_sort, select_dep_check, input_data_exp, input_icon_exp], spaces=False)]
+        sub_comps = [FormComponent([select_dcache, select_dmthread, select_trim_up, select_dep_check, input_data_exp, input_icon_exp], spaces=False)]
         return TabComponent(self.i18n['core.config.tab.advanced'].capitalize(), PanelComponent(sub_comps), None, 'core.adv')
 
     def _gen_tray_settings(self, core_config: dict, screen_width: int, screen_height: int) -> TabComponent:
@@ -288,8 +282,6 @@ class GenericSettingsManager:
 
         download_mthreaded = adv_form.get_component('down_mthread').get_selected()
         core_config['download']['multithreaded'] = download_mthreaded
-
-        core_config['updates']['sort_packages'] = adv_form.get_component('up_sort').get_selected()
 
         single_dep_check = adv_form.get_component('dep_check').get_selected()
         core_config['system']['single_dependency_checking'] = single_dep_check

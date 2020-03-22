@@ -135,7 +135,8 @@ class ProcessHandler:
                 if line:
                     self._notify_watcher(line)
 
-                    output_handler(line)
+                    if output_handler:
+                        output_handler(line)
 
                     if error_output is not None:
                         error_output.write(line)
