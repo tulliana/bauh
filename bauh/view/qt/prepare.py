@@ -2,6 +2,7 @@ import datetime
 import operator
 import time
 from functools import reduce
+from typing import Tuple
 
 from PyQt5.QtCore import QSize, Qt, QThread, pyqtSignal, QCoreApplication
 from PyQt5.QtGui import QIcon
@@ -23,17 +24,33 @@ class Prepare(QThread, TaskManager):
     signal_update = pyqtSignal(str, float, str)
     signal_finished = pyqtSignal(str)
     signal_started = pyqtSignal()
+    signal_ask_password = pyqtSignal()
 
     def __init__(self, context: ApplicationContext, manager: SoftwareManager, i18n: I18n):
         super(Prepare, self).__init__()
         self.manager = manager
         self.i18n = i18n
         self.context = context
+        self.waiting_password = False
+        self.password_response = None
+
+    def ask_password(self) -> Tuple[str, bool]:
+        self.waiting_password = True
+        self.signal_ask_password.emit()
+
+        while self.waiting_password:
+            pass  # waiting for user input
+
+        return self.password_response
+
+    def set_password_reply(self, password: str, valid: bool):
+        self.password_response = password, valid
+        self.waiting_password = False
 
     def run(self):
         root_pwd = None
         if self.manager.requires_root('prepare', None):
-            root_pwd, ok = root.ask_root_password(self.context, self.i18n)
+            root_pwd, ok = self.ask_password()
 
             if not ok:
                 QCoreApplication.exit(1)
@@ -95,6 +112,7 @@ class EnableSkip(QThread):
 class PreparePanel(QWidget, TaskManager):
 
     signal_status = pyqtSignal(object, object)
+    signal_password_response = pyqtSignal(str, bool)
 
     def __init__(self, context: ApplicationContext, manager: SoftwareManager, screen_size: QSize,  i18n: I18n, manage_window: QWidget):
         super(PreparePanel, self).__init__()
@@ -118,6 +136,8 @@ class PreparePanel(QWidget, TaskManager):
         self.prepare_thread.signal_update.connect(self.update_progress)
         self.prepare_thread.signal_finished.connect(self.finish_task)
         self.prepare_thread.signal_started.connect(self.start)
+        self.prepare_thread.signal_ask_password.connect(self.ask_root_password)
+        self.signal_password_response.connect(self.prepare_thread.set_password_reply)
 
         self.check_thread = CheckFinished()
         self.signal_status.connect(self.check_thread.update)
@@ -167,6 +187,10 @@ class PreparePanel(QWidget, TaskManager):
         toolbar.addWidget(self.bt_skip)
 
         self.layout().addWidget(toolbar)
+
+    def ask_root_password(self):
+        root_pwd, ok = root.ask_root_password(self.context, self.i18n)
+        self.signal_password_response.emit(root_pwd, ok)
 
     def _enable_skip_button(self):
         self.bt_skip.setEnabled(True)
