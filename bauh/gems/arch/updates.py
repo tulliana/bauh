@@ -7,7 +7,6 @@ from bauh.api.abstract.controller import UpgradeRequirements, UpgradeRequirement
 from bauh.api.abstract.handler import ProcessWatcher
 from bauh.gems.arch import pacman, sorting
 from bauh.gems.arch.aur import AURClient
-from bauh.gems.arch.config import read_config
 from bauh.gems.arch.depedencies import DependenciesAnalyser
 from bauh.gems.arch.model import ArchPackage
 from bauh.view.util.translation import I18n
@@ -350,10 +349,10 @@ class UpdatesSummarizer:
 
         return requirement
 
-    def summarize(self, pkgs: List[ArchPackage], root_password: str) -> UpgradeRequirements:
-        res = UpgradeRequirements(None, [], None, [])
+    def summarize(self, pkgs: List[ArchPackage], root_password: str, arch_config: dict) -> UpgradeRequirements:
+        res = UpgradeRequirements([], [], [], [])
 
-        context = UpdateRequirementsContext({}, {}, {}, {}, {}, {}, {}, {}, {}, None, {}, set(), read_config(), root_password)
+        context = UpdateRequirementsContext({}, {}, {}, {}, {}, {}, {}, {}, {}, None, {}, set(), arch_config, root_password)
         self.__fill_aur_index(context)
 
         aur_data = {}

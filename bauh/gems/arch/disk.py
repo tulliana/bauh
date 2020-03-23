@@ -57,7 +57,7 @@ def save_several(pkgnames: Iterable[str], repo_map: Dict[str, str], overwrite: b
 
     desktop_files = pacman.list_desktop_entries(to_cache)
 
-    no_desktop_files = {}
+    no_desktop_files = set()
 
     to_write = []
 
@@ -136,6 +136,8 @@ def save_several(pkgnames: Iterable[str], repo_map: Dict[str, str], overwrite: b
 
             for p in pkgs:
                 to_write.append(p)
+    else:
+        no_desktop_files = {*pkgnames}
 
     if no_desktop_files:
         bin_paths = pacman.list_bin_paths(no_desktop_files)

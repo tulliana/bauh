@@ -79,7 +79,7 @@ class AURClient:
     def search(self, words: str) -> dict:
         return self.http_client.get_json(URL_SEARCH + words)
 
-    def get_info(self, names: Set[str]) -> List[dict]:
+    def get_info(self, names: Iterable[str]) -> List[dict]:
         res = self.http_client.get_json(URL_INFO + self._map_names_as_queries(names))
         return res['results'] if res and res.get('results') else []
 

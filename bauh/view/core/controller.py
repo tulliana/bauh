@@ -249,6 +249,8 @@ class GenericSoftwareManager(SoftwareManager):
             if not res:
                 return False
 
+        return True
+
     def uninstall(self, app: SoftwarePackage, root_password: str, handler: ProcessWatcher) -> bool:
         man = self._get_manager_for(app)
 

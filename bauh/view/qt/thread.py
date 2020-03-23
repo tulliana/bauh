@@ -307,12 +307,12 @@ class UpgradeSelected(AsyncAction):
 
         if success:
             updated = len(requirements.to_upgrade)
-            updated_types.add(req.pkg.__class__ for req in requirements.to_upgrade)
+            updated_types.update((req.pkg.__class__ for req in requirements.to_upgrade))
 
             if read_config()['disk']['trim_after_update']:
                 self.change_substatus(self.i18n['action.disk_trim'].capitalize())
 
-            msg = '<p>{}</p><br/>{}</p><p>{}</p>'.format(self.i18n['action.update.success.reboot.line1'],
+            msg = '<p>{}</p>{}</p><br/><p>{}</p>'.format(self.i18n['action.update.success.reboot.line1'],
                                                          self.i18n['action.update.success.reboot.line2'],
                                                          self.i18n['action.update.success.reboot.line3'])
             self.request_reboot(msg)

@@ -357,7 +357,7 @@ class InputFilter(QLineEdit):
         self.typing = None
 
     def notify_text_change(self):
-        time.sleep(1.5)
+        time.sleep(2)
         text = self.text().strip()
 
         if text != self.last_text:
