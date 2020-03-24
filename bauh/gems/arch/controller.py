@@ -1352,7 +1352,7 @@ class ArchManager(SoftwareManager):
     def _check_repo_pkg_deps(self, context: TransactionContext, file: bool = False) -> bool:
         context.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(context.name)))
         ti = time.time()
-        pkgs_data = pacman.map_updates_data({context.install_file}, files=file)
+        pkgs_data = pacman.map_updates_data({context.install_file if file else context.name}, files=file)
         provided_map = pacman.map_provided()
         try:
             missing_deps = self.deps_analyser.map_missing_deps(pkgs_data=pkgs_data,
