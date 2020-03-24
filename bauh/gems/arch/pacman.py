@@ -779,14 +779,20 @@ def map_optional_deps(names: Iterable[str], remote: bool) -> Dict[str, Dict[str,
                         if val == 'None':
                             deps = {}
                         else:
-                            dep_info = val.split(':')
-                            deps = {dep_info[0].strip(): dep_info[1].strip()}
+                            if ':' in val:
+                                dep_info = val.split(':')
+                                deps = {dep_info[0].strip(): dep_info[1].strip()}
+                            else:
+                                deps = {dep.strip(): '' for dep in val.split(' ') if dep}
                     elif latest_name and deps is not None:
                         res[latest_name] = deps
                         latest_name, deps = None, None
 
                 elif latest_name and deps is not None:
-                    dep_info = l.split(':')
-                    deps[dep_info[0].strip()] = dep_info[1].strip()
+                    if ':' in l:
+                        dep_info = l.split(':')
+                        deps[dep_info[0].strip()] = dep_info[1].strip()
+                    else:
+                        deps.update({dep.strip(): '' for dep in l.split(' ') if dep})
 
         return res

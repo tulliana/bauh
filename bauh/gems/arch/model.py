@@ -50,9 +50,6 @@ class ArchPackage(SoftwarePackage):
     def has_info(self):
         return True
 
-    # def can_be_updated(self) -> bool:  # TODO remove ?
-    #     return super(ArchPackage, self).can_be_updated() and self.repository == 'aur'
-
     def can_be_installed(self) -> bool:
         if super(ArchPackage, self).can_be_installed():
             return bool(self.url_download) if self.repository == 'aur' else True
