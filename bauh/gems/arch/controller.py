@@ -11,7 +11,7 @@ from datetime import datetime
 from math import floor
 from pathlib import Path
 from threading import Thread
-from typing import List, Set, Type, Tuple, Dict
+from typing import List, Set, Type, Tuple, Dict, Iterable
 
 import requests
 
@@ -976,7 +976,7 @@ class ArchManager(SoftwareManager):
 
         self._update_progress(context, 100)
 
-    def _map_repos(self, pkgnames: Set[str]) -> dict:
+    def _map_repos(self, pkgnames: Iterable[str]) -> dict:
         pkg_repos = pacman.get_repositories(pkgnames)  # getting repositories set
 
         if len(pkgnames) != len(pkg_repos):  # checking if any dep not found in the distro repos are from AUR
@@ -1156,17 +1156,12 @@ class ArchManager(SoftwareManager):
         return True
 
     def _install_optdeps(self, context: TransactionContext) -> bool:
-        odeps = pacman.map_optional_deps({context.name}, remote=False)[context.name]
+        odeps = pacman.map_optional_deps({context.name}, remote=False, not_installed=True)[context.name]
 
         if not odeps:
             return True
 
-        to_install = {d for d in odeps if not pacman.check_installed(d)}
-
-        if not to_install:
-            return True
-
-        pkg_repos = self._map_repos(to_install)
+        pkg_repos = self._map_repos(odeps.keys())
 
         if pkg_repos:
             final_optdeps = {dep: {'desc': odeps.get(dep), 'repository': pkg_repos.get(dep)} for dep, repository in pkg_repos.items()}

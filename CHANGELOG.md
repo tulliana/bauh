@@ -39,7 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - dependency checking algorithm: 
         - faster for scenarios involving several packages ( taking =~ 95% less time )
         - faster for AUR installations ( taking an average of 23% less time )
-    - code refactored 
+    - code refactored
+    - overall speed improvements 
 - UI
     - table update performance
     - the name filter now delays 1 second before being applied

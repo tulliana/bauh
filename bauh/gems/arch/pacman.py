@@ -22,7 +22,7 @@ def is_available() -> bool:
     return res and not res.strip().startswith('which ')
 
 
-def get_repositories(pkgs: Set[str]) -> dict:
+def get_repositories(pkgs: Iterable[str]) -> dict:
     pkgre = '|'.join(pkgs).replace('+', r'\+').replace('.', r'\.')
 
     searchres = new_subprocess(['pacman', '-Ss', pkgre]).stdout
@@ -757,7 +757,7 @@ def remove_several(pkgnames: Iterable[str], root_password: str) -> SystemProcess
         return SystemProcess(new_subprocess(cmd), wrong_error_phrase='warning:')
 
 
-def map_optional_deps(names: Iterable[str], remote: bool) -> Dict[str, Dict[str, str]]:
+def map_optional_deps(names: Iterable[str], remote: bool, not_installed: bool = False) -> Dict[str, Dict[str, str]]:
     output = run_cmd('pacman -{}i {}'.format('S' if remote else 'Q', ' '.join(names)))
 
     if output:
@@ -776,14 +776,19 @@ def map_optional_deps(names: Iterable[str], remote: bool) -> Dict[str, Dict[str,
                         latest_name = val
                     elif field == 'Optional Deps':
                         val = line[field_sep_idx + 1:].strip()
-                        if val == 'None':
-                            deps = {}
-                        else:
+                        deps = {}
+                        if val != 'None':
                             if ':' in val:
                                 dep_info = val.split(':')
-                                deps = {dep_info[0].strip(): dep_info[1].strip()}
+                                desc = dep_info[1].strip()
+
+                                if desc and not_installed and '[installed]' in desc:
+                                    continue
+
+                                deps[dep_info[0].strip()] = desc
                             else:
-                                deps = {dep.strip(): '' for dep in val.split(' ') if dep}
+                                sev_deps = {dep.strip(): '' for dep in val.split(' ') if dep and (not not_installed or '[installed]' not in dep)}
+                                deps.update(sev_deps)
                     elif latest_name and deps is not None:
                         res[latest_name] = deps
                         latest_name, deps = None, None
@@ -791,8 +796,14 @@ def map_optional_deps(names: Iterable[str], remote: bool) -> Dict[str, Dict[str,
                 elif latest_name and deps is not None:
                     if ':' in l:
                         dep_info = l.split(':')
-                        deps[dep_info[0].strip()] = dep_info[1].strip()
+                        desc = dep_info[1].strip()
+
+                        if desc and not_installed and '[installed]' in desc:
+                            continue
+
+                        deps[dep_info[0].strip()] = desc
                     else:
-                        deps.update({dep.strip(): '' for dep in l.split(' ') if dep})
+                        sev_deps = {dep.strip(): '' for dep in l.split(' ') if dep and (not not_installed or '[installed]' not in dep)}
+                        deps.update(sev_deps)
 
         return res
