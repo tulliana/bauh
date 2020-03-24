@@ -1162,11 +1162,7 @@ class ArchManager(SoftwareManager):
         return True
 
     def _install_optdeps(self, context: TransactionContext) -> bool:
-        if context.repository == 'aur':
-            with open('{}/.SRCINFO'.format(context.project_dir)) as f:
-                odeps = pkgbuild.read_optdeps_as_dict(f.read(), self.context.is_system_x86_64())
-        else:
-            odeps = pacman.map_optional_deps({context.name}, remote=False)[context.name]
+        odeps = pacman.map_optional_deps({context.name}, remote=False)[context.name]
 
         if not odeps:
             return True
