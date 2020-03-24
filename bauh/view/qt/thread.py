@@ -521,6 +521,9 @@ class AnimateProgress(QThread):
             self.increment = 0.5
             self.paused = False
 
+            if self.progress_value >= val:
+                self.progress_value = val
+
     def pause(self):
         self.paused = True
 
