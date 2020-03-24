@@ -1072,7 +1072,10 @@ class ArchManager(SoftwareManager):
             context.watcher.print(self.i18n['action.cancelled'])
             return False
 
+        old_progress_behavior = context.change_progress
+        context.change_progress = False
         dep_not_installed = self._install_deps(context, missing_deps)
+        context.change_progress = old_progress_behavior
 
         if dep_not_installed:
             message.show_dep_not_installed(context.watcher, context.name, dep_not_installed, self.i18n)
