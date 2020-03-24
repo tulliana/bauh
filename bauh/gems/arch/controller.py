@@ -1047,6 +1047,7 @@ class ArchManager(SoftwareManager):
 
                 context.watcher.change_substatus(self.i18n['arch.optdeps.checking'].format(bold(context.name)))
 
+                self._update_progress(context, 100)
                 if self._install_optdeps(context):
                     return True
 
@@ -1215,7 +1216,14 @@ class ArchManager(SoftwareManager):
                     context.watcher.print(self.i18n['action.cancelled'])
                     return True  # because the main package installation was successful
 
+                change_progress = context.change_progress
+
+                if not change_progress:
+                    context.change_progress = True
+
                 dep_not_installed = self._install_deps(context, sorted_deps)
+
+                context.change_progress = change_progress
 
                 if dep_not_installed:
                     message.show_optdep_not_installed(dep_not_installed, context.watcher, self.i18n)
@@ -1432,6 +1440,7 @@ class ArchManager(SoftwareManager):
         res = self._install(context)
 
         if res and not context.skip_opt_deps:
+            self._update_progress(context, 100)
             return self._install_optdeps(context)
 
         return res
