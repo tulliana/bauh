@@ -1162,8 +1162,11 @@ class ArchManager(SoftwareManager):
         return True
 
     def _install_optdeps(self, context: TransactionContext) -> bool:
-        with open('{}/.SRCINFO'.format(context.project_dir)) as f:
-            odeps = pkgbuild.read_optdeps_as_dict(f.read(), self.context.is_system_x86_64())
+        if context.repository == 'aur':
+            with open('{}/.SRCINFO'.format(context.project_dir)) as f:
+                odeps = pkgbuild.read_optdeps_as_dict(f.read(), self.context.is_system_x86_64())
+        else:
+            odeps = pacman.map_optional_deps({context.name}, remote=False)[context.name]
 
         if not odeps:
             return True
@@ -1364,7 +1367,7 @@ class ArchManager(SoftwareManager):
     def _check_repo_pkg_deps(self, pkgname: str, root_password: str, handler: ProcessHandler, file: bool = False) -> bool:
         handler.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(pkgname)))
         ti = time.time()
-        pkgs_data = pacman.map_updates_data({pkgname},files=file)
+        pkgs_data = pacman.map_updates_data({pkgname}, files=file)
         provided_map = pacman.map_provided()
         try:
             missing_deps = self.deps_analyser.map_missing_deps(pkgs_data=pkgs_data,
@@ -1414,10 +1417,7 @@ class ArchManager(SoftwareManager):
         if pkg.repository == 'aur':
             res = self._install_from_aur(install_context)
         else:
-            if not self._check_repo_pkg_deps(pkgname=pkg.name, root_password=root_password, handler=handler):
-                return False
-
-            res = self._install(install_context)
+            res = self._install_from_repository(install_context)
 
         if res and os.path.exists(pkg.get_disk_data_path()):
             with open(pkg.get_disk_data_path()) as f:
@@ -1425,6 +1425,17 @@ class ArchManager(SoftwareManager):
                 if data:
                     data = json.loads(data)
                     pkg.fill_cached_data(data)
+
+        return res
+
+    def _install_from_repository(self, context: TransactionContext) -> bool:
+        if not self._check_repo_pkg_deps(pkgname=context.name, root_password=context.root_password, handler=context.handler):
+            return False
+
+        res = self._install(context)
+
+        if res and not context.skip_opt_deps:
+            return self._install_optdeps(context)
 
         return res
 

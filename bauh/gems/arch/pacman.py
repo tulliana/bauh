@@ -756,3 +756,37 @@ def remove_several(pkgnames: Iterable[str], root_password: str) -> SystemProcess
     else:
         return SystemProcess(new_subprocess(cmd), wrong_error_phrase='warning:')
 
+
+def map_optional_deps(names: Iterable[str], remote: bool) -> Dict[str, Dict[str, str]]:
+    output = run_cmd('pacman -{}i {}'.format('S' if remote else 'Q', ' '.join(names)))
+
+    if output:
+        res = {}
+        latest_name, deps = None, None
+
+        for l in output.split('\n'):
+            if l:
+                if l[0] != ' ':
+                    line = l.strip()
+                    field_sep_idx = line.index(':')
+                    field = line[0:field_sep_idx].strip()
+
+                    if field == 'Name':
+                        val = line[field_sep_idx + 1:].strip()
+                        latest_name = val
+                    elif field == 'Optional Deps':
+                        val = line[field_sep_idx + 1:].strip()
+                        if val == 'None':
+                            deps = {}
+                        else:
+                            dep_info = val.split(':')
+                            deps = {dep_info[0].strip(): dep_info[1].strip()}
+                    elif latest_name and deps is not None:
+                        res[latest_name] = deps
+                        latest_name, deps = None, None
+
+                elif latest_name and deps is not None:
+                    dep_info = l.split(':')
+                    deps[dep_info[0].strip()] = dep_info[1].strip()
+
+        return res
