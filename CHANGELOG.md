@@ -60,6 +60,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Default
     - **pre_dependency_checking** dropped ( now is always enabled )
     - **sort_packages** dropped ( now the gems decide if it makes sense to sort the packages )
+    - **disk_cache** dropped ( now is always enabled )
 - Arch / AUR:
     - **transitive_checking** dropped ( now is always enabled )
 

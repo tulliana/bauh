@@ -78,12 +78,6 @@ class GenericSettingsManager:
     def _gen_adv_settings(self, core_config: dict, screen_width: int, screen_height: int) -> TabComponent:
         default_width = floor(0.11 * screen_width)
 
-        select_dcache = self._gen_bool_component(label=self.i18n['core.config.disk_cache'],
-                                                 tooltip=self.i18n['core.config.disk_cache.tip'],
-                                                 value=core_config['disk_cache']['enabled'],
-                                                 max_width=default_width,
-                                                 id_='dcache')
-
         input_data_exp = TextInputComponent(label=self.i18n['core.config.mem_cache.data_exp'],
                                             tooltip=self.i18n['core.config.mem_cache.data_exp.tip'],
                                             value=str(core_config['memory_cache']['data_expiration']),
@@ -116,7 +110,7 @@ class GenericSettingsManager:
                                                    max_width=default_width,
                                                    value=core_config['download']['multithreaded'])
 
-        sub_comps = [FormComponent([select_dcache, select_dmthread, select_trim_up, select_dep_check, input_data_exp, input_icon_exp], spaces=False)]
+        sub_comps = [FormComponent([select_dmthread, select_trim_up, select_dep_check, input_data_exp, input_icon_exp], spaces=False)]
         return TabComponent(self.i18n['core.config.tab.advanced'].capitalize(), PanelComponent(sub_comps), None, 'core.adv')
 
     def _gen_tray_settings(self, core_config: dict, screen_width: int, screen_height: int) -> TabComponent:
@@ -278,7 +272,6 @@ class GenericSettingsManager:
 
         # advanced
         adv_form = advanced.components[0]
-        core_config['disk_cache']['enabled'] = adv_form.get_component('dcache').get_selected()
 
         download_mthreaded = adv_form.get_component('down_mthread').get_selected()
         core_config['download']['multithreaded'] = download_mthreaded

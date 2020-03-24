@@ -299,7 +299,7 @@ class GenericSoftwareManager(SoftwareManager):
         return man if man and self._can_work(man) else None
 
     def cache_to_disk(self, pkg: SoftwarePackage, icon_bytes: bytes, only_icon: bool):
-        if self.context.disk_cache and pkg.supports_disk_cache():
+        if pkg.supports_disk_cache():
             man = self._get_manager_for(pkg)
 
             if man:

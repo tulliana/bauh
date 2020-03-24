@@ -232,7 +232,7 @@ class UpgradeSelected(AsyncAction):
 
                 self.change_substatus(self.i18n['action.disk_trim'].capitalize())
 
-                success, output = ProcessHandler(self).handle_simple(SimpleProcess(['fstrim', '-a', '-v'], root_password=pwd))
+                success, output = ProcessHandler(self).handle_simple(SimpleProcess(['fstrim', '/', '-v'], root_password=pwd))
 
                 if not success:
                     self.show_message(title=self.i18n['success'].capitalize(),
@@ -458,12 +458,11 @@ class SearchPackages(AsyncAction):
 
 class InstallPackage(AsyncAction):
 
-    def __init__(self, manager: SoftwareManager, disk_cache: bool, icon_cache: MemoryCache, i18n: I18n, pkg: PackageView = None):
+    def __init__(self, manager: SoftwareManager, icon_cache: MemoryCache, i18n: I18n, pkg: PackageView = None):
         super(InstallPackage, self).__init__()
         self.pkg = pkg
         self.manager = manager
         self.icon_cache = icon_cache
-        self.disk_cache = disk_cache
         self.i18n = i18n
         self.root_password = None
 
@@ -474,7 +473,7 @@ class InstallPackage(AsyncAction):
             try:
                 success = self.manager.install(self.pkg.model, self.root_password, self)
 
-                if success and self.disk_cache:
+                if success:
                     self.pkg.model.installed = True
 
                     if self.pkg.model.supports_disk_cache():

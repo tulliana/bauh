@@ -24,9 +24,6 @@ def read_config(update_file: bool = False) -> dict:
           'notifications': True,
           'single_dependency_checking': False
         },
-        'disk_cache': {
-            'enabled': True
-        },
         'suggestions': {
             'enabled': True,
             'by_type': 10

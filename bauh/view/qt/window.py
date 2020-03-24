@@ -240,9 +240,7 @@ class ManageWindow(QWidget):
 
         self.layout.addWidget(self.toolbar)
 
-        self.table_apps = AppsTable(self, self.icon_cache,
-                                    disk_cache=bool(self.config['disk_cache']['enabled']),
-                                    download_icons=bool(self.config['download']['icons']))
+        self.table_apps = AppsTable(self, self.icon_cache, download_icons=bool(self.config['download']['icons']))
         self.table_apps.change_headers_policy()
 
         self.layout.addWidget(self.table_apps)
@@ -294,7 +292,7 @@ class ManageWindow(QWidget):
         self.thread_apply_filters.signal_table.connect(self._update_table_and_upgrades)
         self.signal_table_update.connect(self.thread_apply_filters.stop_waiting)
 
-        self.thread_install = InstallPackage(manager=self.manager, disk_cache=bool(self.config['disk_cache']['enabled']), icon_cache=self.icon_cache, i18n=self.i18n)
+        self.thread_install = InstallPackage(manager=self.manager, icon_cache=self.icon_cache, i18n=self.i18n)
         self._bind_async_action(self.thread_install, finished_call=self._finish_install)
 
         self.thread_animate_progress = AnimateProgress()

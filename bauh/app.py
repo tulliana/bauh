@@ -57,11 +57,10 @@ def main():
 
     context = ApplicationContext(i18n=i18n,
                                  http_client=http_client,
-                                 disk_cache=bool(local_config['disk_cache']['enabled']),
                                  download_icons=bool(local_config['download']['icons']),
                                  app_root_dir=ROOT_DIR,
                                  cache_factory=cache_factory,
-                                 disk_loader_factory=DefaultDiskCacheLoaderFactory(disk_cache_enabled=bool(local_config['disk_cache']['enabled']), logger=logger),
+                                 disk_loader_factory=DefaultDiskCacheLoaderFactory(logger),
                                  logger=logger,
                                  distro=util.get_distro(),
                                  file_downloader=AdaptableFileDownloader(logger, bool(local_config['download']['multithreaded']),

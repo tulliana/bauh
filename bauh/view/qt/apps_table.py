@@ -84,11 +84,10 @@ class AppsTable(QTableWidget):
 
     COL_NUMBER = 8
 
-    def __init__(self, parent: QWidget, icon_cache: MemoryCache, disk_cache: bool, download_icons: bool):
+    def __init__(self, parent: QWidget, icon_cache: MemoryCache, download_icons: bool):
         super(AppsTable, self).__init__()
         self.setParent(parent)
         self.window = parent
-        self.disk_cache = disk_cache
         self.download_icons = download_icons
         self.setColumnCount(self.COL_NUMBER)
         self.setFocusPolicy(Qt.NoFocus)
@@ -232,7 +231,7 @@ class AppsTable(QTableWidget):
                     col_name = self.item(idx, 0)
                     col_name.setIcon(icon_data['icon'])
 
-                    if self.disk_cache and app.model.supports_disk_cache() and app.model.get_disk_icon_path():
+                    if app.model.supports_disk_cache() and app.model.get_disk_icon_path():
                         if not icon_was_cached or not os.path.exists(app.model.get_disk_icon_path()):
                             self.window.manager.cache_to_disk(pkg=app.model, icon_bytes=icon_data['bytes'], only_icon=True)
 
@@ -380,7 +379,7 @@ class AppsTable(QTableWidget):
         item.setText(name)
 
         icon_path = pkg.model.get_disk_icon_path()
-        if self.disk_cache and pkg.model.supports_disk_cache() and icon_path and os.path.isfile(icon_path):
+        if pkg.model.supports_disk_cache() and icon_path and os.path.isfile(icon_path):
             with open(icon_path, 'rb') as f:
                 icon_bytes = f.read()
                 pixmap = QPixmap()
