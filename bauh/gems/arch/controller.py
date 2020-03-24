@@ -1216,14 +1216,10 @@ class ArchManager(SoftwareManager):
                     context.watcher.print(self.i18n['action.cancelled'])
                     return True  # because the main package installation was successful
 
-                change_progress = context.change_progress
-
-                if not change_progress:
-                    context.change_progress = True
-
+                old_progress_behavior = context.change_progress
+                context.change_progress = True
                 dep_not_installed = self._install_deps(context, sorted_deps)
-
-                context.change_progress = change_progress
+                context.change_progress = old_progress_behavior
 
                 if dep_not_installed:
                     message.show_optdep_not_installed(dep_not_installed, context.watcher, self.i18n)
