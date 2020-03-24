@@ -239,8 +239,6 @@ You can change some application settings via environment variables or arguments 
 
 #### General configuration file ( **~/.config/bauh/config.yml** )
 ```
-disk_cache:
-  enabled: true  # allows bauh to save applications icons and data to the disk to load them faster when needed
 download:
   icons: true # allows bauh to download the applications icons when they are not saved on the disk
   multithreaded: true  # allows bauh to use a multithreaded download client installed on the system to download applications source files faster ( current only **aria2** is supported )
@@ -280,7 +278,6 @@ Priority:
 - Disable the application types you do not want to deal with
 - If you don't care about restarting the app every time a new supported package technology is installed, enable `single_dependency_checking`. This can reduce the application response time, since it won't need to recheck if the required technologies are available on your system every time a given action is executed.
 - If you don't mind to see the applications icons, you can disable them via `download: icons: false`. The application may have a slight response improvement, since it will reduce the IO and parallelism within it.
-- Let the `disk_cache` always enabled so **bauh** does not need to dynamically retrieve data every time you launch it.
 
 
 ### Files and Logs
