@@ -233,9 +233,10 @@ environment:
 
 #### Environment variables / parameters
 You can change some application settings via environment variables or arguments (type ```bauh --help``` to get more information).
-- `BAUH_TRAY (--tray )`: If the tray icon and update-check daemon should be created. Use `0` (disable, default) or `1` (enable).
-- `BAUH_LOGS (--logs )`: enable **bauh** logs (for debugging purposes). Use: `0` (disable, default) or `1` (enable)
-- `--reset`: cleans all configurations and cached data stored in the HOME directory
+- `BAUH_TRAY (--tray )`: if the tray icon and update-check daemon should be created. Use `0` (disable, default) or `1` (enable).
+- `BAUH_LOGS (--logs )`: its enables **bauh** logs (for debugging purposes). Use: `0` (disable, default) or `1` (enable)
+- `--settings`: it displays only the settings window 
+- `--reset`: it cleans all configurations and cached data stored in the HOME directory
 
 #### General configuration file ( **~/.config/bauh/config.yml** )
 ```
