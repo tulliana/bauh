@@ -29,7 +29,7 @@ from bauh.commons.config import save_config
 from bauh.commons.html import bold
 from bauh.commons.system import SystemProcess, ProcessHandler, new_subprocess, run_cmd, new_root_subprocess, \
     SimpleProcess
-from bauh.gems.arch import BUILD_DIR, aur, pacman, makepkg, pkgbuild, message, confirmation, disk, git, \
+from bauh.gems.arch import BUILD_DIR, aur, pacman, makepkg, message, confirmation, disk, git, \
     gpg, URL_CATEGORIES_FILE, CATEGORIES_CACHE_DIR, CATEGORIES_FILE_PATH, CUSTOM_MAKEPKG_FILE, SUGGESTIONS_FILE, \
     CONFIG_FILE, get_icon_path, database, mirrors, get_repo_icon_path
 from bauh.gems.arch.aur import AURClient
@@ -534,7 +534,7 @@ class ArchManager(SoftwareManager):
         context.watcher.change_progress(50)
 
         context.install_file = version_files[versions[0]]
-        if not self._check_repo_pkg_deps(context.install_file, context.root_password, context.handler, file=True):
+        if not self._check_repo_pkg_deps(context=context, file=True):
             return False
 
         context.watcher.change_substatus(self.i18n['arch.downgrade.install_older'])
@@ -1064,17 +1064,17 @@ class ArchManager(SoftwareManager):
 
         return self.deps_analyser.map_known_missing_deps(dep_repos, watcher, check_subdeps)
 
-    def _ask_and_install_missing_deps(self, pkgname: str, root_password: str, missing_deps: List[Tuple[str, str]], handler: ProcessHandler) -> bool:
-        handler.watcher.change_substatus(self.i18n['arch.missing_deps_found'].format(bold(pkgname)))
+    def _ask_and_install_missing_deps(self, context: TransactionContext,  missing_deps: List[Tuple[str, str]]) -> bool:
+        context.watcher.change_substatus(self.i18n['arch.missing_deps_found'].format(bold(context.name)))
 
-        if not confirmation.request_install_missing_deps(pkgname, missing_deps, handler.watcher, self.i18n):
-            handler.watcher.print(self.i18n['action.cancelled'])
+        if not confirmation.request_install_missing_deps(context.name, missing_deps, context.watcher, self.i18n):
+            context.watcher.print(self.i18n['action.cancelled'])
             return False
 
-        dep_not_installed = self._install_deps(missing_deps, root_password, handler, change_progress=False)
+        dep_not_installed = self._install_deps(context, missing_deps)
 
         if dep_not_installed:
-            message.show_dep_not_installed(handler.watcher, pkgname, dep_not_installed, self.i18n)
+            message.show_dep_not_installed(context.watcher, context.name, dep_not_installed, self.i18n)
             return False
 
         return True
@@ -1105,10 +1105,7 @@ class ArchManager(SoftwareManager):
                 return False
 
             if missing_deps:
-                if not self._ask_and_install_missing_deps(pkgname=context.name,
-                                                          root_password=context.root_password,
-                                                          missing_deps=missing_deps,
-                                                          handler=context.handler):
+                if not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
                     return False
 
                 # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
@@ -1130,10 +1127,7 @@ class ArchManager(SoftwareManager):
                 if missing_deps is None:
                     return False
 
-                if not self._ask_and_install_missing_deps(pkgname=context.name,
-                                                          root_password=context.root_password,
-                                                          missing_deps=missing_deps,
-                                                          handler=context.handler):
+                if not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
                     return False
 
                 # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
@@ -1360,10 +1354,10 @@ class ArchManager(SoftwareManager):
             watcher.change_substatus(self.i18n['arch.makepkg.optimizing'])
             ArchCompilationOptimizer(arch_config, self.i18n, self.context.logger).optimize()
 
-    def _check_repo_pkg_deps(self, pkgname: str, root_password: str, handler: ProcessHandler, file: bool = False) -> bool:
-        handler.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(pkgname)))
+    def _check_repo_pkg_deps(self, context: TransactionContext, file: bool = False) -> bool:
+        context.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(context.name)))
         ti = time.time()
-        pkgs_data = pacman.map_updates_data({pkgname}, files=file)
+        pkgs_data = pacman.map_updates_data({context.install_file}, files=file)
         provided_map = pacman.map_provided()
         try:
             missing_deps = self.deps_analyser.map_missing_deps(pkgs_data=pkgs_data,
@@ -1372,7 +1366,7 @@ class ArchManager(SoftwareManager):
                                                                deps_checked=set(),
                                                                deps_data={},
                                                                sort=True,
-                                                               watcher=handler.watcher)
+                                                               watcher=context.watcher)
             tf = time.time()
             self.logger.info("Took {0:.2f} seconds to verify missing dependencies".format(tf - ti))
         except PackageNotFoundException:
@@ -1381,10 +1375,7 @@ class ArchManager(SoftwareManager):
             return False
 
         if missing_deps:
-            if not self._ask_and_install_missing_deps(pkgname=pkgname,
-                                                      root_password=root_password,
-                                                      missing_deps=missing_deps,
-                                                      handler=handler):
+            if not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
                 self.logger.info("User doesn't want to install the missing dependencies. Aborting...")
                 return False
 
@@ -1425,7 +1416,7 @@ class ArchManager(SoftwareManager):
         return res
 
     def _install_from_repository(self, context: TransactionContext) -> bool:
-        if not self._check_repo_pkg_deps(pkgname=context.name, root_password=context.root_password, handler=context.handler):
+        if not self._check_repo_pkg_deps(context):
             return False
 
         res = self._install(context)
