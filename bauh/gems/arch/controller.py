@@ -31,7 +31,7 @@ from bauh.commons.system import SystemProcess, ProcessHandler, new_subprocess, r
     SimpleProcess
 from bauh.gems.arch import BUILD_DIR, aur, pacman, makepkg, message, confirmation, disk, git, \
     gpg, URL_CATEGORIES_FILE, CATEGORIES_CACHE_DIR, CATEGORIES_FILE_PATH, CUSTOM_MAKEPKG_FILE, SUGGESTIONS_FILE, \
-    CONFIG_FILE, get_icon_path, database, mirrors, get_repo_icon_path
+    CONFIG_FILE, get_icon_path, database, mirrors, get_repo_icon_path, sorting
 from bauh.gems.arch.aur import AURClient
 from bauh.gems.arch.config import read_config
 from bauh.gems.arch.depedencies import DependenciesAnalyser
@@ -1161,44 +1161,59 @@ class ArchManager(SoftwareManager):
         if not odeps:
             return True
 
-        pkg_repos = self._map_repos(odeps.keys())
+        repo_mapping = self._map_repos(odeps.keys())
 
-        if pkg_repos:
-            final_optdeps = {dep: {'desc': odeps.get(dep), 'repository': pkg_repos.get(dep)} for dep, repository in pkg_repos.items()}
+        if repo_mapping:
+            final_optdeps = {dep: {'desc': odeps.get(dep), 'repository': repo_mapping.get(dep)} for dep, repository in repo_mapping.items() if repo_mapping.get(dep)}
 
             deps_to_install = confirmation.request_optional_deps(context.name, final_optdeps, context.watcher, self.i18n)
 
             if not deps_to_install:
                 return True
             else:
-                sorted_deps = []
+                deps_data = {}
+                opt_repo_deps, aur_threads = [], []
 
-                missing_deps = self.deps_analyser.map_known_missing_deps({d: pkg_repos[d] for d in deps_to_install}, context.watcher)
+                for dep in deps_to_install:
+                    if repo_mapping[dep] == 'aur':
+                        t = Thread(target=self.aur_client.fill_update_data, args=(deps_data, dep, None, None), daemon=True)
+                        t.start()
+                        aur_threads.append(t)
+                    else:
+                        opt_repo_deps.append(dep)
 
-                if missing_deps is None:
-                    return True  # because the main package installation was successful
+                if opt_repo_deps:
+                    deps_data.update(pacman.map_updates_data(opt_repo_deps))
 
+                for t in aur_threads:
+                    t.join()
+
+                provided_map = pacman.map_provided()
+                aur_index = self.aur_client.read_index() if aur_threads else None
+                subdeps_data = {}
+                missing_deps = self.deps_analyser.map_missing_deps(pkgs_data=deps_data,
+                                                                   provided_names=provided_map,
+                                                                   aur_index=aur_index,
+                                                                   deps_checked=set(),
+                                                                   deps_data=subdeps_data,
+                                                                   watcher=context.watcher,
+                                                                   sort=False)
+
+                to_sort = []
                 if missing_deps:
-                    same_as_selected = len(deps_to_install) == len(missing_deps) and deps_to_install == {d[0] for d in missing_deps}
+                    for dep in missing_deps:
+                        if dep[0] not in deps_to_install:
+                            to_sort.append(dep[0])
 
-                    if not same_as_selected and not confirmation.request_install_missing_deps(None, missing_deps, context.watcher, self.i18n):
-                        context.watcher.print(self.i18n['action.cancelled'])
-                        return True  # because the main package installation was successful
+                display_deps_dialog = bool(to_sort)  # it means there are subdeps to be installed so a new dialog should be displayed
 
-                    sorted_deps.extend(missing_deps)
-                else:
-                    aur_deps, repo_deps = [], []
+                to_sort.extend(deps_data.keys())
 
-                    for dep in deps_to_install:
-                        repository = pkg_repos[dep]
+                sorted_deps = sorting.sort(to_sort, {**deps_data, **subdeps_data}, provided_map)
 
-                        if repository == 'aur':
-                            aur_deps.append((dep, repository))
-                        else:
-                            repo_deps.append((dep, repository))
-
-                    sorted_deps.extend(repo_deps)
-                    sorted_deps.extend(aur_deps)
+                if display_deps_dialog and not confirmation.request_install_missing_deps(None, sorted_deps, context.watcher, self.i18n):
+                    context.watcher.print(self.i18n['action.cancelled'])
+                    return True  # because the main package installation was successful
 
                 dep_not_installed = self._install_deps(context, sorted_deps)
 

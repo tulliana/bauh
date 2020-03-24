@@ -2,7 +2,7 @@ import logging
 import os
 import re
 import urllib.parse
-from typing import Set, List, Iterable
+from typing import Set, List, Iterable, Dict
 
 import requests
 
@@ -205,3 +205,7 @@ class AURClient:
                 provided.add('{}={}'.format(pkgname, latest_version))
 
             return {'c': None, 's': None, 'p': provided, 'r': 'aur', 'v': latest_version, 'd': set()}
+
+    def fill_update_data(self, output: Dict[str, dict], pkgname: str, latest_version: str, srcinfo: dict = None):
+        data = self.map_update_data(pkgname=pkgname, latest_version=latest_version, srcinfo=srcinfo)
+        output[pkgname] = data
