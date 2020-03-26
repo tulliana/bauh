@@ -1,4 +1,5 @@
 import logging
+import time
 from threading import Thread
 from typing import Iterable
 
@@ -79,5 +80,7 @@ class TransactionStatusHandler(Thread):
                 output = self.outputs.pop()
                 if not self._handle(output):
                     break
+            else:
+                time.sleep(0.005)
 
         self.logger.info("Finished")
