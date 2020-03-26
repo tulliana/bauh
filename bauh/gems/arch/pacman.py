@@ -373,8 +373,8 @@ def get_version_for_not_installed(pkgname: str) -> str:
         return output.split('\n')[0].split(' ')[1].strip()
 
 
-def map_repositories(pkgnames: Iterable[str]) -> Dict[str, str]:
-    info = run_cmd('pacman -Si {}'.format(' '.join(pkgnames)), print_error=False, ignore_return_code=True)
+def map_repositories(pkgnames: Iterable[str] = None) -> Dict[str, str]:
+    info = run_cmd('pacman -Si {}'.format(' '.join(pkgnames) if pkgnames else ''), print_error=False, ignore_return_code=True)
     if info:
         repos = re.findall(r'(Name|Repository)\s*:\s*(.+)', info)
 
@@ -536,8 +536,17 @@ def get_dependencies_to_remove(pkgs: Iterable[str], root_password: str) -> Dict[
     return {t[1]: t[0] for t in RE_REMOVE_TRANSITIVE_DEPS.findall(output)}
 
 
-def map_provided() -> Dict[str, str]:
-    output = run_cmd('pacman -Qi')
+def fill_provided_map(key: str, val: str, output: dict):
+    current_val = output.get(key)
+
+    if current_val is None:
+        output[key] = {val}
+    else:
+        current_val.add(val)
+
+
+def map_provided(remote: bool = False, pkgs: Iterable[str] = None) -> Dict[str, Set[str]]:
+    output = run_cmd('pacman -{}i {}'.format('S' if remote else 'Q', ' '.join(pkgs) if pkgs else ''))
 
     if output:
         provided_map = {}
@@ -556,19 +565,19 @@ def map_provided() -> Dict[str, str]:
                     elif field == 'Version':
                         latest_version = val.split('=')[0]
                     elif field == 'Provides':
-                        provided_map[latest_name] = latest_name
-                        provided_map['{}={}'.format(latest_name, latest_version)] = latest_name
+                        fill_provided_map(latest_name, latest_name, provided_map)
+                        fill_provided_map('{}={}'.format(latest_name, latest_version), latest_name, provided_map)
 
                         if val != 'None':
                             for w in val.split(' '):
                                 if w:
                                     word = w.strip()
-                                    provided_map[word] = latest_name
+                                    fill_provided_map(word, latest_name, provided_map)
 
                                     word_split = word.split('=')
 
                                     if word_split[0] != word:
-                                        provided_map[word_split[0]] = latest_name
+                                        fill_provided_map(word_split[0], latest_name, provided_map)
                         else:
                             provided = True
 
@@ -581,12 +590,12 @@ def map_provided() -> Dict[str, str]:
                     for w in l.split(' '):
                         if w:
                             word = w.strip()
-                            provided_map[word] = latest_name
+                            fill_provided_map(word, latest_name, provided_map)
 
                             word_split = word.split('=')
 
                             if word_split[0] != word:
-                                provided_map[word_split[0]] = latest_name
+                                fill_provided_map(word_split[0], latest_name, provided_map)
 
         return provided_map
 
@@ -683,62 +692,6 @@ def map_updates_data(pkgs: Iterable[str], files: bool = False) -> dict:
 
 def list_installed_names() -> Set[str]:
     return {p for p in run_cmd('pacman -Qq').split('\n') if p}
-
-
-def list_provided(pkgs: Iterable[str], remote: bool) -> Dict[str, str]:
-    output = run_cmd('pacman -{}i {}'.format('S' if remote else 'Q', ' '.join(pkgs)))
-
-    if output:
-        res = {}
-        provided_mapping = False
-        latest_name = None
-        latest_version = None
-
-        for l in output.split('\n'):
-            if l:
-                if l[0] != ' ':
-                    line = l.strip()
-                    field_sep_idx = line.index(':')
-                    field = line[0:field_sep_idx].strip()
-                    val = line[field_sep_idx+1:].strip()
-
-                    if field == 'Name':
-                        latest_name = val
-                        latest_version = None
-                    elif field == 'Version':
-                        latest_version = val.split('=')[0]
-                    elif field == 'Provides':
-                        provided_mapping = True
-                        res[latest_name] = latest_name
-                        res['{}={}'.format(latest_name, latest_version)] = latest_name
-
-                        if val == 'None':
-                            provided_mapping = False
-                        else:
-                            for w in val.split(' '):
-                                if w:
-                                    word = w.strip()
-                                    res[word] = latest_name
-
-                                    word_split = word.split('=')
-
-                                    if word_split[0] != word:
-                                        res[word_split[0]] = latest_name
-                    else:
-                        provided_mapping = False
-
-                elif provided_mapping:
-                    for w in l.split(' '):
-                        if w:
-                            word = w.strip()
-                            res[word] = latest_name
-
-                            word_split = word.split('=')
-
-                            if word_split[0] != word:
-                                res[word_split[0]] = latest_name
-
-        return res
 
 
 def upgrade_several(pkgnames: Iterable[str], root_password: str) -> SystemProcess:

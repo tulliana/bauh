@@ -1,10 +1,11 @@
-from typing import Set, List, Tuple
+from typing import Set, List, Tuple, Dict
 
 from bauh.api.abstract.handler import ProcessWatcher
-from bauh.api.abstract.view import MultipleSelectComponent, InputOption
+from bauh.api.abstract.view import MultipleSelectComponent, InputOption, FormComponent, SingleSelectComponent, \
+    SelectViewType
 from bauh.commons import resource
 from bauh.commons.html import bold
-from bauh.gems.arch import ROOT_DIR
+from bauh.gems.arch import ROOT_DIR, get_repo_icon_path, get_icon_path
 from bauh.view.util.translation import I18n
 
 
@@ -47,3 +48,41 @@ def request_install_missing_deps(pkgname: str, deps: List[Tuple[str, str]], watc
 
     comp = MultipleSelectComponent(label='', options=opts, default_options=set(opts))
     return watcher.request_confirmation(i18n['arch.missing_deps.title'], msg, [comp], confirmation_label=i18n['continue'].capitalize(), deny_label=i18n['cancel'].capitalize())
+
+
+def request_providers(providers_map: Dict[str, Set[str]], repo_map: Dict[str, str], watcher: ProcessWatcher, i18n: I18n) -> Set[str]:
+    msg = "<p>{}.</p><p>{}.</p>".format(i18n['arch.dialog.providers.line1'],
+                                        i18n['arch.dialog.providers.line2'])
+
+    repo_icon_path = get_repo_icon_path()
+    aur_icon_path = get_icon_path()
+
+    comps = []
+    for dep, providers in providers_map.items():
+        opts = []
+
+        providers_list = [*providers]
+        providers_list.sort()
+
+        for p in providers_list:
+            repo = repo_map.get(p, 'aur')
+            opts.append(InputOption(label=p,
+                                    value=p,
+                                    icon_path=aur_icon_path if repo == 'aur' else repo_icon_path,
+                                    tooltip='{}: {}'.format(i18n['repository'].capitalize(), repo)))
+
+        form = FormComponent([], label=dep)
+        form.components.append(SingleSelectComponent(label='',
+                                                     options=opts,
+                                                     default_option=opts[0],
+                                                     type_=SelectViewType.RADIO,
+                                                     max_per_line=1))
+        comps.append(form)
+
+    if watcher.request_confirmation(title=i18n['arch.providers'].capitalize(),
+                                    body=msg,
+                                    components=comps,
+                                    confirmation_label=i18n['proceed'].capitalize(),
+                                    deny_label=i18n['cancel'].capitalize()):
+
+        return {form.components[0].get_selected() for form in comps}

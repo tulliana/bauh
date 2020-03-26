@@ -35,7 +35,7 @@ def __add_dep_to_sort(pkgname: str, pkgs_data: Dict[str, dict], sorted_names: di
         return idx
 
 
-def sort(pkgs: Iterable[str], pkgs_data: Dict[str, dict], provided_map: Dict[str, str] = None) -> List[Tuple[str, str]]:
+def sort(pkgs: Iterable[str], pkgs_data: Dict[str, dict], provided_map: Dict[str, Set[str]] = None) -> List[Tuple[str, str]]:
     sorted_list, sorted_names, not_sorted = [], set(), set()
     provided = provided_map if provided_map else {}
 
@@ -44,7 +44,7 @@ def sort(pkgs: Iterable[str], pkgs_data: Dict[str, dict], provided_map: Dict[str
         data = pkgs_data[pkgname]
         if not provided_map and data['p']:  # mapping provided if reeded
             for p in data['p']:
-                provided[p] = pkgname
+                provided[p] = {pkgname}
 
         if not data['d']:
             sorted_list.append(pkgname)
@@ -57,10 +57,12 @@ def sort(pkgs: Iterable[str], pkgs_data: Dict[str, dict], provided_map: Dict[str
         pkgsdeps = set()
         data = pkgs_data[pkg]
         for dep in data['d']:
-            real_dep = provided.get(dep)
+            providers = provided.get(dep)
 
-            if real_dep and real_dep in pkgs:
-                pkgsdeps.add(real_dep)
+            if providers:
+                for p in providers:
+                    if p in pkgs:
+                        pkgsdeps.add(p)
 
         if pkgsdeps:
             deps_map[pkg] = pkgsdeps

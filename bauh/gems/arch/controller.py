@@ -34,7 +34,7 @@ from bauh.gems.arch import BUILD_DIR, aur, pacman, makepkg, message, confirmatio
     CONFIG_FILE, get_icon_path, database, mirrors, get_repo_icon_path, sorting
 from bauh.gems.arch.aur import AURClient
 from bauh.gems.arch.config import read_config
-from bauh.gems.arch.depedencies import DependenciesAnalyser
+from bauh.gems.arch.dependencies import DependenciesAnalyser
 from bauh.gems.arch.exceptions import PackageNotFoundException
 from bauh.gems.arch.mapper import ArchDataMapper
 from bauh.gems.arch.model import ArchPackage
@@ -51,6 +51,7 @@ RE_SPLIT_VERSION = re.compile(r'([=><]+)')
 SOURCE_FIELDS = ('source', 'source_x86_64')
 RE_PRE_DOWNLOAD_WL_PROTOCOLS = re.compile(r'^(.+::)?(https?|ftp)://.+')
 RE_PRE_DOWNLOAD_BL_EXT = re.compile(r'.+\.(git|gpg)$')
+# RE_PROVIDERS = re.compile(r'\d+\)\s+([\w\-_]+)\n?')  # TODO remove
 
 
 class TransactionContext:
@@ -58,7 +59,9 @@ class TransactionContext:
     def __init__(self, name: str = None, base: str = None, maintainer: str = None, watcher: ProcessWatcher = None,
                  handler: ProcessHandler = None, dependency: bool = None, skip_opt_deps: bool = False, root_password: str = None,
                  build_dir: str = None, project_dir: str = None, change_progress: bool = False, arch_config: dict = None,
-                 install_file: str = None, repository: str = None, pkg: ArchPackage = None):
+                 install_file: str = None, repository: str = None, pkg: ArchPackage = None,
+                 remote_repo_map: Dict[str, str] = None, provided_map: Dict[str, Set[str]] = None,
+                 remote_provided_map: Dict[str, Set[str]] = None, aur_idx: Set[str] = None):
         self.name = name
         self.base = base
         self.maintainer = maintainer
@@ -74,6 +77,10 @@ class TransactionContext:
         self.config = arch_config
         self.install_file = install_file
         self.pkg = pkg
+        self.provided_map = provided_map
+        self.remote_repo_map = remote_repo_map
+        self.remote_provided_map = remote_provided_map
+        self.aur_idx = aur_idx
 
     @classmethod
     def gen_context_from(cls, pkg: ArchPackage, arch_config: dict, root_password: str, handler: ProcessHandler) -> "TransactionContext":
@@ -107,6 +114,33 @@ class TransactionContext:
 
     def get_version(self) -> str:
         return self.pkg.version if self.pkg else None
+
+    def get_aur_idx(self, aur_client: AURClient) -> Set[str]:
+        if self.aur_idx is None:
+            if bool(self.config['aur']):
+                self.aur_idx = aur_client.read_index()
+            else:
+                self.aur_idx = set()
+
+        return self.aur_idx
+
+    def get_provided_map(self) -> Dict[str, Set[str]]:
+        if self.provided_map is None:
+            self.provided_map = pacman.map_provided()
+
+        return self.provided_map
+
+    def get_remote_provided_map(self) -> Dict[str, Set[str]]:
+        if self.remote_provided_map is None:
+            self.remote_provided_map = pacman.map_provided(remote=True)
+
+        return self.remote_provided_map
+
+    def get_remote_repo_map(self) -> Dict[str, str]:
+        if self.remote_repo_map is None:
+            self.remote_repo_map = pacman.map_repositories()
+
+        return self.remote_repo_map
 
 
 class ArchManager(SoftwareManager):
@@ -534,7 +568,7 @@ class ArchManager(SoftwareManager):
         context.watcher.change_progress(50)
 
         context.install_file = version_files[versions[0]]
-        if not self._check_repo_pkg_deps(context=context, file=True):
+        if not self._handle_missing_deps(context=context):
             return False
 
         context.watcher.change_substatus(self.i18n['arch.downgrade.install_older'])
@@ -1083,37 +1117,50 @@ class ArchManager(SoftwareManager):
 
         return True
 
-    def _handle_deps_and_keys(self, context: TransactionContext) -> bool:
-        context.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(context.name)))
+    def _handle_missing_deps(self, context: TransactionContext) -> bool:
+        ti = time.time()
 
-        if not context.config['simple_checking']:
-            ti = time.time()
+        if context.repository == 'aur':
             with open('{}/.SRCINFO'.format(context.project_dir)) as f:
                 srcinfo = aur.map_srcinfo(f.read())
 
             pkgs_data = {context.name: self.aur_client.map_update_data(context.name, context.get_version(), srcinfo)}
-            provided_map = pacman.map_provided()
-            try:
-                missing_deps = self.deps_analyser.map_missing_deps(pkgs_data=pkgs_data,
-                                                                   provided_names=provided_map,
-                                                                   aur_index=self.aur_client.read_index(),
-                                                                   deps_checked=set(),
-                                                                   deps_data={},
-                                                                   sort=True,
-                                                                   watcher=context.watcher)
-                tf = time.time()
-                self.logger.info("Took {0:.2f} seconds to verify missing dependencies".format(tf - ti))
-            except PackageNotFoundException:
-                tf = time.time()
-                self.logger.info("Took {0:.2f} seconds to verify missing dependencies".format(tf - ti))
+        else:
+            file = bool(context.install_file)
+            pkgs_data = pacman.map_updates_data({context.install_file if file else context.name}, files=file)
+
+        deps_data, alread_checked_deps = {}, set()
+
+        missing_deps = self.deps_analyser.map_missing_deps(pkgs_data=pkgs_data,
+                                                           provided_map=context.get_provided_map(),
+                                                           aur_index=context.get_aur_idx(self.aur_client),
+                                                           deps_checked=alread_checked_deps,
+                                                           deps_data=deps_data,
+                                                           sort=True,
+                                                           remote_provided_map=context.get_remote_provided_map(),
+                                                           remote_repo_map=context.get_remote_repo_map(),
+                                                           watcher=context.watcher)
+
+        tf = time.time()
+        self.logger.info("Took {0:.2f} seconds to check for missing dependencies".format(tf - ti))
+
+        if missing_deps is None:
+            return False  # called of by the user
+
+        if missing_deps and not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
+            return False
+
+        return True
+
+    def _handle_deps_and_keys(self, context: TransactionContext) -> bool:
+        context.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(context.name)))
+
+        if not context.config['simple_checking']:
+            if not self._handle_missing_deps(context):
                 return False
 
-            if missing_deps:
-                if not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
-                    return False
-
-                # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
-                return self._handle_deps_and_keys(context)
+            # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
+            return self._handle_deps_and_keys(context)
 
         ti = time.time()
         check_res = makepkg.check(context.project_dir,
@@ -1130,6 +1177,8 @@ class ArchManager(SoftwareManager):
 
                 if missing_deps is None:
                     return False
+
+                # TODO handle provided for simple pacman checking
 
                 if not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
                     return False
@@ -1193,20 +1242,28 @@ class ArchManager(SoftwareManager):
                     t.join()
 
                 provided_map = pacman.map_provided()
+                remote_provided_map = pacman.map_provided(remote=True)
+                remote_repo_map = pacman.map_repositories()
                 aur_index = self.aur_client.read_index() if aur_threads else None
                 subdeps_data = {}
                 missing_deps = self.deps_analyser.map_missing_deps(pkgs_data=deps_data,
-                                                                   provided_names=provided_map,
+                                                                   provided_map=provided_map,
                                                                    aur_index=aur_index,
                                                                    deps_checked=set(),
                                                                    deps_data=subdeps_data,
                                                                    watcher=context.watcher,
+                                                                   remote_provided_map=remote_provided_map,
+                                                                   remote_repo_map=remote_repo_map,
                                                                    sort=False)
+
+                if missing_deps is None:
+                    return False  # called of by the user
 
                 to_sort = []
                 if missing_deps:
                     for dep in missing_deps:
-                        if dep[0] not in deps_to_install:
+                        # TODO handle multiple providers for a missing dep
+                        if dep[0] not in deps_to_install and dep[1] != '__several__':
                             to_sort.append(dep[0])
 
                 display_deps_dialog = bool(to_sort)  # it means there are subdeps to be installed so a new dialog should be displayed
@@ -1371,33 +1428,6 @@ class ArchManager(SoftwareManager):
             watcher.change_substatus(self.i18n['arch.makepkg.optimizing'])
             ArchCompilationOptimizer(arch_config, self.i18n, self.context.logger).optimize()
 
-    def _check_repo_pkg_deps(self, context: TransactionContext, file: bool = False) -> bool:
-        context.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(context.name)))
-        ti = time.time()
-        pkgs_data = pacman.map_updates_data({context.install_file if file else context.name}, files=file)
-        provided_map = pacman.map_provided()
-        try:
-            missing_deps = self.deps_analyser.map_missing_deps(pkgs_data=pkgs_data,
-                                                               provided_names=provided_map,
-                                                               aur_index=self.aur_client.read_index(),
-                                                               deps_checked=set(),
-                                                               deps_data={},
-                                                               sort=True,
-                                                               watcher=context.watcher)
-            tf = time.time()
-            self.logger.info("Took {0:.2f} seconds to verify missing dependencies".format(tf - ti))
-        except PackageNotFoundException:
-            tf = time.time()
-            self.logger.info("Took {0:.2f} seconds to verify missing dependencies".format(tf - ti))
-            return False
-
-        if missing_deps:
-            if not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
-                self.logger.info("User doesn't want to install the missing dependencies. Aborting...")
-                return False
-
-        return True
-
     def install(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher, context: TransactionContext = None) -> bool:
         self.aur_client.clean_caches()
 
@@ -1433,7 +1463,11 @@ class ArchManager(SoftwareManager):
         return res
 
     def _install_from_repository(self, context: TransactionContext) -> bool:
-        if not self._check_repo_pkg_deps(context):
+        try:
+            if not self._handle_missing_deps(context):
+                return False
+        except PackageNotFoundException:
+            self.logger.error("Package '{}' was not found")
             return False
 
         res = self._install(context)

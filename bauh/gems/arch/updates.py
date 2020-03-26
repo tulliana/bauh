@@ -7,7 +7,8 @@ from bauh.api.abstract.controller import UpgradeRequirements, UpgradeRequirement
 from bauh.api.abstract.handler import ProcessWatcher
 from bauh.gems.arch import pacman, sorting
 from bauh.gems.arch.aur import AURClient
-from bauh.gems.arch.depedencies import DependenciesAnalyser
+from bauh.gems.arch.dependencies import DependenciesAnalyser
+from bauh.gems.arch.exceptions import PackageNotFoundException
 from bauh.gems.arch.model import ArchPackage
 from bauh.view.util.translation import I18n
 
@@ -32,8 +33,9 @@ class UpdateRequirementsContext:
                  aur_to_update: Dict[str, ArchPackage], repo_to_install: Dict[str, ArchPackage],
                  aur_to_install: Dict[str, ArchPackage], to_install: Dict[str, ArchPackage],
                  pkgs_data: Dict[str, dict], cannot_upgrade: Dict[str, UpgradeRequirement],
-                 to_remove: Dict[str, UpgradeRequirement], installed_names: Set[str], provided_names: Dict[str, str],
-                 aur_index: Set[str], arch_config: dict, root_password: str):
+                 to_remove: Dict[str, UpgradeRequirement], installed_names: Set[str], provided_map: Dict[str, Set[str]],
+                 aur_index: Set[str], arch_config: dict, remote_provided_map: Dict[str, Set[str]], remote_repo_map: Dict[str, str],
+                 root_password: str):
         self.to_update = to_update
         self.repo_to_update = repo_to_update
         self.aur_to_update = aur_to_update
@@ -43,11 +45,13 @@ class UpdateRequirementsContext:
         self.cannot_upgrade = cannot_upgrade
         self.root_password = root_password
         self.installed_names = installed_names
-        self.provided_names = provided_names
+        self.provided_map = provided_map
         self.to_remove = to_remove
         self.to_install = to_install
         self.aur_index = aur_index
         self.arch_config = arch_config
+        self.remote_provided_map = remote_provided_map
+        self.remote_repo_map = remote_repo_map
 
 
 class UpdatesSummarizer:
@@ -250,17 +254,24 @@ class UpdatesSummarizer:
 
         output[idx] = ArchPackage(name=pkg_data[0], version=version, latest_version=version, repository=pkg_data[1], i18n=self.i18n)
 
-    def _fill_to_install(self, context: UpdateRequirementsContext):
+    def _fill_to_install(self, context: UpdateRequirementsContext) -> bool:
         ti = time.time()
         self.logger.info("Discovering updates missing packages")
-        deps_data = {}
+        deps_data, deps_checked = {}, set()
         deps = self.deps_analyser.map_missing_deps(pkgs_data=context.pkgs_data,
-                                                   provided_names=context.provided_names,
+                                                   provided_map=context.provided_map,
                                                    aur_index=context.aur_index,
-                                                   deps_checked=set(),
+                                                   deps_checked=deps_checked,
                                                    sort=True,
                                                    deps_data=deps_data,
+                                                   remote_provided_map=context.remote_provided_map,
+                                                   remote_repo_map=context.remote_repo_map,
                                                    watcher=self.watcher)
+
+        if deps is None:
+            tf = time.time()
+            self.logger.info("It took {0:.2f} seconds to retrieve required upgrade packages".format(tf - ti))
+            return False  # the user called the process off
 
         if deps:  # filtering selected packages
             selected_names = {p for p in context.to_update}
@@ -295,32 +306,33 @@ class UpdatesSummarizer:
 
         tf = time.time()
         self.logger.info("It took {0:.2f} seconds to retrieve required upgrade packages".format(tf - ti))
+        return True
 
-    def __fill_provided_names(self, context: UpdateRequirementsContext):
+    def __fill_provided_map(self, context: UpdateRequirementsContext):
         ti = time.time()
         self.logger.info("Filling provided names")
         context.installed_names = pacman.list_installed_names()
         installed_to_ignore = set()
 
         for pkgname in context.to_update:
-            context.provided_names[pkgname] = pkgname
+            pacman.fill_provided_map(pkgname, pkgname, context.provided_map)
             installed_to_ignore.add(pkgname)
 
             pdata = context.pkgs_data.get(pkgname)
             if pdata and pdata['p']:
-                context.provided_names['{}={}'.format(pkgname, pdata['v'])] = pkgname
+                pacman.fill_provided_map('{}={}'.format(pkgname, pdata['v']), pkgname, context.provided_map)
                 for p in pdata['p']:
-                    context.provided_names[p] = pkgname
+                    pacman.fill_provided_map(p, pkgname, context.provided_map)
                     split_provided = p.split('=')
 
                     if len(split_provided) > 1 and split_provided[0] != p:
-                        context.provided_names[split_provided[0]] = pkgname
+                        pacman.fill_provided_map(split_provided[0], pkgname, context.provided_map)
 
         if installed_to_ignore:  # filling the provided names of the installed
             installed_to_query = context.installed_names.difference(installed_to_ignore)
 
             if installed_to_query:
-                context.provided_names.update(pacman.list_provided(installed_to_query, remote=False))
+                context.provided_map.update(pacman.map_provided(remote=False, pkgs=installed_to_query))
 
         tf = time.time()
         self.logger.info("Filling provided names took {0:.2f} seconds".format(tf - ti))
@@ -352,7 +364,13 @@ class UpdatesSummarizer:
     def summarize(self, pkgs: List[ArchPackage], root_password: str, arch_config: dict) -> UpgradeRequirements:
         res = UpgradeRequirements([], [], [], [])
 
-        context = UpdateRequirementsContext({}, {}, {}, {}, {}, {}, {}, {}, {}, None, {}, set(), arch_config, root_password)
+        remote_provided_map = pacman.map_provided(remote=True)
+        remote_repo_map = pacman.map_repositories()
+        context = UpdateRequirementsContext(to_update={}, repo_to_update={}, aur_to_update={}, repo_to_install={},
+                                            aur_to_install={}, to_install={}, pkgs_data={}, cannot_upgrade={},
+                                            to_remove={}, installed_names=set(), provided_map={}, aur_index=set(),
+                                            arch_config=arch_config, root_password=root_password,
+                                            remote_provided_map=remote_provided_map, remote_repo_map=remote_repo_map)
         self.__fill_aur_index(context)
 
         aur_data = {}
@@ -379,12 +397,18 @@ class UpdatesSummarizer:
         if aur_data:
             context.pkgs_data.update(aur_data)
 
-        self.__fill_provided_names(context)
+        self.__fill_provided_map(context)
 
         if context.pkgs_data:
             self._fill_conflicts(context)
 
-        self._fill_to_install(context)
+        try:
+            if not self._fill_to_install(context):
+                self.logger.info("The operation was cancelled by the user")
+                return
+        except PackageNotFoundException as e:
+            self.logger.error("Package '{}' not found".format(e.name))
+            return
 
         if context.to_update:
             installed_sizes = pacman.get_installed_size(list(context.to_update.keys()))
@@ -396,7 +420,7 @@ class UpdatesSummarizer:
                 sorted_pkgs.sort(key=lambda pkg: pkg.name)
 
             if context.aur_to_update:  # adding AUR packages in the end
-                sorted_aur = sorting.sort(context.aur_to_update.keys(), context.pkgs_data, context.provided_names)
+                sorted_aur = sorting.sort(context.aur_to_update.keys(), context.pkgs_data, context.provided_map)
 
                 for aur_pkg in sorted_aur:
                     sorted_pkgs.append(context.aur_to_update[aur_pkg[0]])

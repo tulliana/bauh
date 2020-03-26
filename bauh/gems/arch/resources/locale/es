@@ -182,3 +182,6 @@ arch.action.db_locked.body.l1=La base de datos de paquetes del sistema está blo
 arch.action.db_locked.body.l2=Es necesario desbloquearla para continuar.
 arch.action.db_locked.confirmation=Desbloquear y continuar
 arch.action.db_locked.error=No fue posible desbloquear la base de datos.
+arch.dialog.providers.line1=Hay múltiples proveedores para algunas dependencias
+arch.dialog.providers.line2=Marque las que desea
+arch.providers=proveedores
