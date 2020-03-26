@@ -1,7 +1,6 @@
 import logging
 import time
 from threading import Thread
-from typing import Iterable
 
 from bauh.api.abstract.handler import ProcessWatcher
 from bauh.view.util.translation import I18n
@@ -9,12 +8,11 @@ from bauh.view.util.translation import I18n
 
 class TransactionStatusHandler(Thread):
 
-    def __init__(self, watcher: ProcessWatcher, i18n: I18n, pkgs: Iterable[str], logger: logging.Logger):
+    def __init__(self, watcher: ProcessWatcher, i18n: I18n, npkgs: int, logger: logging.Logger):
         super(TransactionStatusHandler, self).__init__(daemon=True)
         self.watcher = watcher
         self.i18n = i18n
-        self.pkgs = pkgs
-        self.npkgs = len(pkgs)
+        self.npkgs = npkgs
         self.downloading = 0
         self.upgrading = 0
         self.installing = 0
@@ -26,8 +24,8 @@ class TransactionStatusHandler(Thread):
         performed = self.downloading + self.upgrading + self.installing
         return '({0:.2f}%)'.format((performed / (2 * self.npkgs)) * 100)
 
-    def _can_notify(self, output: str):
-        return output.split(' ')[1] in self.pkgs
+    def get_performed(self) -> int:
+        return self.upgrading + self.installing
 
     def _handle(self, output: str) -> bool:
         if output:
@@ -38,27 +36,31 @@ class TransactionStatusHandler(Thread):
 
                     self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.downloading, self.npkgs,
                                                                             self.i18n['downloading'].capitalize(), output.split(' ')[1].strip()))
-            elif output.startswith('upgrading') and self._can_notify(output):
+            elif output.startswith('upgrading'):
                 self.downloading = self.npkgs  # to avoid wrong numbers the packages are cached
-                perc = self.gen_percentage()
-                self.upgrading += 1
 
-                performed = self.upgrading + self.installing
+                if self.get_performed() < self.npkgs:
+                    perc = self.gen_percentage()
+                    self.upgrading += 1
 
-                if performed <= self.npkgs:
-                    self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.upgrading, self.npkgs,
-                                                                            self.i18n['manage_window.status.upgrading'].capitalize(), output.split(' ')[1].strip()))
-            elif output.startswith('installing') and self._can_notify(output):
+                    performed = self.upgrading + self.installing
+
+                    if performed <= self.npkgs:
+                        self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.upgrading, self.npkgs,
+                                                                                self.i18n['manage_window.status.upgrading'].capitalize(), output.split(' ')[1].strip()))
+            elif output.startswith('installing'):
                 self.downloading = self.npkgs  # to avoid wrong numbers the packages are cached
-                perc = self.gen_percentage()
-                self.installing += 1
 
-                performed = self.upgrading + self.installing
+                if self.get_performed() < self.npkgs:
+                    perc = self.gen_percentage()
+                    self.installing += 1
 
-                if performed <= self.npkgs:
-                    self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.installing, self.npkgs,
-                                                                            self.i18n['manage_window.status.installing'].capitalize(),
-                                                                            output.split(' ')[1].strip()))
+                    performed = self.upgrading + self.installing
+
+                    if performed <= self.npkgs:
+                        self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.installing, self.npkgs,
+                                                                                self.i18n['manage_window.status.installing'].capitalize(),
+                                                                                output.split(' ')[1].strip()))
             else:
                 performed = self.upgrading + self.installing
                 if performed == self.npkgs:
