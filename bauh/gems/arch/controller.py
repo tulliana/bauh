@@ -685,8 +685,12 @@ class ArchManager(SoftwareManager):
                                                                            ', '.join(repo_pkgs_names)))
 
             try:
-                output_handler = TransactionStatusHandler(watcher, self.i18n, len(repo_pkgs_names))
+                output_handler = TransactionStatusHandler(watcher, self.i18n, len(repo_pkgs_names), self.logger)
+                output_handler.start()
                 success = handler.handle(pacman.upgrade_several(repo_pkgs_names, root_password), output_handler=output_handler.handle)
+                output_handler.stop_working()
+                output_handler.join()
+
                 watcher.change_substatus('')
 
                 if success:
@@ -1322,12 +1326,22 @@ class ArchManager(SoftwareManager):
 
         context.watcher.change_substatus(self.i18n['arch.installing.package'].format(bold(context.name)))
         self._update_progress(context, 80)
-        status_handler = TransactionStatusHandler(context.watcher, self.i18n, 1) if not context.dependency else None
+
+        if not context.dependency:
+            status_handler = TransactionStatusHandler(context.watcher, self.i18n, 1, self.logger) if not context.dependency else None
+            status_handler.start()
+        else:
+            status_handler = None
+
         installed = context.handler.handle(process=pacman.install_as_process(pkgpath=pkgpath,
                                                                              root_password=context.root_password,
                                                                              file=context.has_install_file(),
                                                                              pkgdir=context.project_dir),
                                            output_handler=status_handler.handle if status_handler else None)
+        if status_handler:
+            status_handler.stop_working()
+            status_handler.join()
+
         self._update_progress(context, 95)
 
         if installed:
