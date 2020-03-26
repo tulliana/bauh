@@ -685,7 +685,7 @@ class ArchManager(SoftwareManager):
                                                                            ', '.join(repo_pkgs_names)))
 
             try:
-                output_handler = TransactionStatusHandler(watcher, self.i18n, repo_pkgs_names, self.logger)
+                output_handler = TransactionStatusHandler(watcher, self.i18n, len(repo_pkgs_names), self.logger)
                 output_handler.start()
                 success = handler.handle(pacman.upgrade_several(repo_pkgs_names, root_password), output_handler=output_handler.handle)
                 output_handler.stop_working()
@@ -1328,7 +1328,7 @@ class ArchManager(SoftwareManager):
         self._update_progress(context, 80)
 
         if not context.dependency:
-            status_handler = TransactionStatusHandler(context.watcher, self.i18n, {context.name}, self.logger) if not context.dependency else None
+            status_handler = TransactionStatusHandler(context.watcher, self.i18n, 1, self.logger) if not context.dependency else None
             status_handler.start()
         else:
             status_handler = None
