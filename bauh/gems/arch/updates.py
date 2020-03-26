@@ -13,20 +13,6 @@ from bauh.gems.arch.model import ArchPackage
 from bauh.view.util.translation import I18n
 
 
-class UpgradeOutputStatusHandler:
-
-    def __init__(self, watcher: ProcessWatcher, i18n: I18n):
-        self.watcher = watcher
-        self.i18n = i18n
-
-    def handle(self, output: str):
-        if output:
-            if output.startswith('downloading'):
-                self.watcher.change_substatus('{} {}'.format(self.i18n['downloading'].capitalize(), output.split(' ')[1].strip()))
-            elif output.startswith('upgrading'):
-                self.watcher.change_substatus('{} {}'.format(self.i18n['manage_window.status.upgrading'].capitalize(), output.split(' ')[1].strip()))
-
-
 class UpdateRequirementsContext:
 
     def __init__(self, to_update: Dict[str, ArchPackage], repo_to_update: Dict[str, ArchPackage],

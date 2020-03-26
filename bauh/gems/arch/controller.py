@@ -38,7 +38,8 @@ from bauh.gems.arch.dependencies import DependenciesAnalyser
 from bauh.gems.arch.exceptions import PackageNotFoundException
 from bauh.gems.arch.mapper import ArchDataMapper
 from bauh.gems.arch.model import ArchPackage
-from bauh.gems.arch.updates import UpdatesSummarizer, UpgradeOutputStatusHandler
+from bauh.gems.arch.output import TransactionStatusHandler
+from bauh.gems.arch.updates import UpdatesSummarizer
 from bauh.gems.arch.worker import AURIndexUpdater, ArchDiskCacheUpdater, ArchCompilationOptimizer, SyncDatabases, \
     RefreshMirrors
 
@@ -684,7 +685,7 @@ class ArchManager(SoftwareManager):
                                                                            ', '.join(repo_pkgs_names)))
 
             try:
-                output_handler = UpgradeOutputStatusHandler(watcher, self.i18n)
+                output_handler = TransactionStatusHandler(watcher, self.i18n, len(repo_pkgs_names))
                 success = handler.handle(pacman.upgrade_several(repo_pkgs_names, root_password), output_handler=output_handler.handle)
                 watcher.change_substatus('')
 
@@ -1321,10 +1322,12 @@ class ArchManager(SoftwareManager):
 
         context.watcher.change_substatus(self.i18n['arch.installing.package'].format(bold(context.name)))
         self._update_progress(context, 80)
-        installed = context.handler.handle(pacman.install_as_process(pkgpath=pkgpath,
-                                                                     root_password=context.root_password,
-                                                                     file=context.has_install_file(),
-                                                                     pkgdir=context.project_dir))
+        status_handler = TransactionStatusHandler(context.watcher, self.i18n, 1) if not context.dependency else None
+        installed = context.handler.handle(process=pacman.install_as_process(pkgpath=pkgpath,
+                                                                             root_password=context.root_password,
+                                                                             file=context.has_install_file(),
+                                                                             pkgdir=context.project_dir),
+                                           output_handler=status_handler)
         self._update_progress(context, 95)
 
         if installed:
