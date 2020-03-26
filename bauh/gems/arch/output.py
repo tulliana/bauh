@@ -38,6 +38,7 @@ class TransactionStatusHandler(Thread):
                     self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.downloading, self.npkgs,
                                                                             self.i18n['downloading'].capitalize(), output.split(' ')[1].strip()))
             elif output.startswith('upgrading') and self._can_notify(output):
+                self.downloading = self.npkgs  # to avoid wrong numbers the packages are cached
                 perc = self.gen_percentage()
                 self.upgrading += 1
 
@@ -47,6 +48,7 @@ class TransactionStatusHandler(Thread):
                     self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.upgrading, self.npkgs,
                                                                             self.i18n['manage_window.status.upgrading'].capitalize(), output.split(' ')[1].strip()))
             elif output.startswith('installing') and self._can_notify(output):
+                self.downloading = self.npkgs  # to avoid wrong numbers the packages are cached
                 perc = self.gen_percentage()
                 self.installing += 1
 
