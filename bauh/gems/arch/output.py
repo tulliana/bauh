@@ -26,15 +26,15 @@ class TransactionStatusHandler(Thread):
         return '({0:.2f}%)'.format((performed / (2 * self.npkgs)) * 100)
 
     def _can_notify(self, output: str):
-        return output.split(' ')[1].split('.')[0] in self.pkgs
+        return output.split(' ')[1] in self.pkgs
 
     def _handle(self, output: str) -> bool:
         if output:
-            if output.startswith('downloading') and self._can_notify(output):
-                perc = self.gen_percentage()
-                self.downloading += 1
+            if output.startswith('downloading'):
+                if self.downloading < self.npkgs:
+                    perc = self.gen_percentage()
+                    self.downloading += 1
 
-                if self.downloading <= self.npkgs:
                     self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.downloading, self.npkgs,
                                                                             self.i18n['downloading'].capitalize(), output.split(' ')[1].strip()))
             elif output.startswith('upgrading') and self._can_notify(output):
