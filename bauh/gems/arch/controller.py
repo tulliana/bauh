@@ -1327,7 +1327,7 @@ class ArchManager(SoftwareManager):
                                                                              root_password=context.root_password,
                                                                              file=context.has_install_file(),
                                                                              pkgdir=context.project_dir),
-                                           output_handler=status_handler)
+                                           output_handler=status_handler.handle if status_handler else None)
         self._update_progress(context, 95)
 
         if installed:
