@@ -14,7 +14,7 @@ class TransactionStatusHandler:
 
     def gen_percentage(self) -> str:
         performed = self.downloading + self.upgrading + self.installing
-        return '({0:.2f}%)'.format(performed / (2 * self.npackages))
+        return '({0:.2f}%)'.format((performed / (2 * self.npackages)) * 100)
 
     def handle(self, output: str):
         if output:
