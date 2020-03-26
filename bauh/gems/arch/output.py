@@ -14,20 +14,23 @@ class TransactionStatusHandler:
 
     def gen_percentage(self) -> str:
         performed = self.downloading + self.upgrading + self.installing
-        return '({0:.2f}%)'.format((performed / (2 * self.npackages)) * 100)
+        return '({}%)'.format(int((performed / (2 * self.npackages)) * 100))
 
     def handle(self, output: str):
         if output:
             if output.startswith('downloading'):
+                perc = self.gen_percentage()
                 self.downloading += 1
-                self.watcher.change_substatus('{} [{}/{}] {} {}'.format(self.gen_percentage(), self.downloading, self.npackages,
+                self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.downloading, self.npackages,
                                                                         self.i18n['downloading'].capitalize(), output.split(' ')[1].strip()))
             elif output.startswith('upgrading'):
+                perc = self.gen_percentage()
                 self.upgrading += 1
-                self.watcher.change_substatus('{} [{}/{}] {} {}'.format(self.gen_percentage(), self.upgrading, self.npackages,
+                self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.upgrading, self.npackages,
                                                                         self.i18n['manage_window.status.upgrading'].capitalize(), output.split(' ')[1].strip()))
             elif output.startswith('installing'):
+                perc = self.gen_percentage()
                 self.installing += 1
-                self.watcher.change_substatus('{} [{}/{}] {} {}'.format(self.gen_percentage(), self.installing, self.npackages,
+                self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.installing, self.npackages,
                                                                         self.i18n['manage_window.status.installing'].capitalize(),
                                                                         output.split(' ')[1].strip()))
