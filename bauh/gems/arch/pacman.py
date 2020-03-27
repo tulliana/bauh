@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 from threading import Thread
@@ -764,15 +765,16 @@ def map_optional_deps(names: Iterable[str], remote: bool, not_installed: bool = 
 
 
 def get_cache_dir() -> str:
-    p = re.compile(r'.*CacheDir\s*=\s*.+')
+    dir_pattern = re.compile(r'.*CacheDir\s*=\s*.+')
 
-    with open('{}/{}'.format(str(Path.home()), 'test.conf')) as f:
-        config_str = f.read()
+    if os.path.exists('/etc/pacman.conf'):
+        with open('{}/{}'.format(str(Path.home()), '/etc/pacman.conf')) as f:
+            config_str = f.read()
 
-    cache_dirs = []
+        cache_dirs = []
 
-    for string in p.findall(config_str):
-        if not string.strip().startswith('#'):
-            cache_dirs.append(string.split('=')[1].strip())
+        for string in dir_pattern.findall(config_str):
+            if not string.strip().startswith('#'):
+                cache_dirs.append(string.split('=')[1].strip())
 
-    return cache_dirs[-1] if cache_dirs else '/var/cache/pacman/pkg/'
+        return cache_dirs[-1] if cache_dirs else '/var/cache/pacman/pkg/'

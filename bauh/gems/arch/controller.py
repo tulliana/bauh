@@ -1883,15 +1883,15 @@ class ArchManager(SoftwareManager):
 
         cache_dir = pacman.get_cache_dir()
 
-        if not os.path.isdir(cache_dir):
+        if not cache_dir or not os.path.isdir(cache_dir):
             watcher.show_message(title=self.i18n['arch.custom_action.clean_cache'].capitalize(),
                                  body=self.i18n['arch.custom_action.clean_cache.no_dir'.format(bold(cache_dir))].capitalize(),
                                  type_=MessageType.WARNING)
             return False
 
         text = '<p>{}.</p><p>{}.</p><p>{}.</p>'.format(self.i18n['arch.custom_action.clean_cache.msg_1'],
-                                                    self.i18n['arch.custom_action.clean_cache.msg_2'],
-                                                    self.i18n['arch.custom_action.clean_cache.msg_3'])
+                                                       self.i18n['arch.custom_action.clean_cache.msg_2'],
+                                                       self.i18n['arch.custom_action.clean_cache.msg_3'])
 
         if watcher.request_confirmation(title=self.i18n['arch.custom_action.clean_cache'].capitalize(),
                                         body=text,
