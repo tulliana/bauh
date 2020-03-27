@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 from threading import Thread
 from typing import List, Set, Tuple, Dict, Iterable
 
@@ -760,3 +761,18 @@ def map_optional_deps(names: Iterable[str], remote: bool, not_installed: bool = 
                         deps.update(sev_deps)
 
         return res
+
+
+def get_cache_dir() -> str:
+    p = re.compile(r'.*CacheDir\s*=\s*.+')
+
+    with open('{}/{}'.format(str(Path.home()), 'test.conf')) as f:
+        config_str = f.read()
+
+    cache_dirs = []
+
+    for string in p.findall(config_str):
+        if not string.strip().startswith('#'):
+            cache_dirs.append(string.split('=')[1].strip())
+
+    return cache_dirs[-1] if cache_dirs else '/var/cache/pacman/pkg/'

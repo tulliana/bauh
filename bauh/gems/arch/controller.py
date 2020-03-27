@@ -31,7 +31,7 @@ from bauh.commons.system import SystemProcess, ProcessHandler, new_subprocess, r
     SimpleProcess
 from bauh.gems.arch import BUILD_DIR, aur, pacman, makepkg, message, confirmation, disk, git, \
     gpg, URL_CATEGORIES_FILE, CATEGORIES_CACHE_DIR, CATEGORIES_FILE_PATH, CUSTOM_MAKEPKG_FILE, SUGGESTIONS_FILE, \
-    CONFIG_FILE, get_icon_path, database, mirrors, get_repo_icon_path, sorting
+    CONFIG_FILE, get_icon_path, database, mirrors, sorting
 from bauh.gems.arch.aur import AURClient
 from bauh.gems.arch.config import read_config
 from bauh.gems.arch.dependencies import DependenciesAnalyser
@@ -52,7 +52,6 @@ RE_SPLIT_VERSION = re.compile(r'([=><]+)')
 SOURCE_FIELDS = ('source', 'source_x86_64')
 RE_PRE_DOWNLOAD_WL_PROTOCOLS = re.compile(r'^(.+::)?(https?|ftp)://.+')
 RE_PRE_DOWNLOAD_BL_EXT = re.compile(r'.+\.(git|gpg)$')
-# RE_PROVIDERS = re.compile(r'\d+\)\s+([\w\-_]+)\n?')  # TODO remove
 
 
 class TransactionContext:
@@ -177,6 +176,12 @@ class ArchManager(SoftwareManager):
             'ref_mirrors': CustomSoftwareAction(i18_label_key='arch.custom_action.refresh_mirrors',
                                                 i18n_status_key='arch.task.mirrors',
                                                 manager_method='refresh_mirrors',
+                                                icon_path=get_icon_path(),
+                                                requires_root=True,
+                                                manager=self),
+            'clean_cache': CustomSoftwareAction(i18_label_key='arch.custom_action.clean_cache',
+                                                i18n_status_key='arch.custom_action.clean_cache.status',
+                                                manager_method='clean_cache',
                                                 icon_path=get_icon_path(),
                                                 requires_root=True,
                                                 manager=self)
@@ -1764,6 +1769,7 @@ class ArchManager(SoftwareManager):
             actions.append(self.custom_actions['ref_mirrors'])
 
         actions.append(self.custom_actions['ref_dbs'])
+        actions.append(self.custom_actions['clean_cache'])
 
         if bool(arch_config['repositories']):
             actions.append(self.custom_actions['sys_up'])
@@ -1870,5 +1876,40 @@ class ArchManager(SoftwareManager):
             watcher.show_message(title=self.i18n['arch.custom_action.upgrade_system'],
                                  body="An error occurred during the upgrade process. Check out the {}".format(bold('Details')),
                                  type_=MessageType.ERROR)
+
+        return False
+
+    def clean_cache(self, root_password: str, watcher: ProcessWatcher) -> bool:
+
+        cache_dir = pacman.get_cache_dir()
+
+        if not os.path.isdir(cache_dir):
+            watcher.show_message(title=self.i18n['arch.custom_action.clean_cache'].capitalize(),
+                                 body=self.i18n['arch.custom_action.clean_cache.no_dir'.format(bold(cache_dir))].capitalize(),
+                                 type_=MessageType.WARNING)
+            return False
+
+        text = '<p>{}.</p><p>{}.</p><p>{}.</p>'.format(self.i18n['arch.custom_action.clean_cache.msg_1'],
+                                                    self.i18n['arch.custom_action.clean_cache.msg_2'],
+                                                    self.i18n['arch.custom_action.clean_cache.msg_3'])
+
+        if watcher.request_confirmation(title=self.i18n['arch.custom_action.clean_cache'].capitalize(),
+                                        body=text,
+                                        confirmation_label=self.i18n['clean'].capitalize(),
+                                        deny_label=self.i18n['cancel'].capitalize()):
+            rm = SimpleProcess(cmd=['rm', '-rf', '{}/*'.format(cache_dir)], root_password=root_password)
+
+            handler = ProcessHandler(watcher)
+            success, output = handler.handle_simple(rm)
+
+            if success:
+                watcher.show_message(title=self.i18n['arch.custom_action.clean_cache'].capitalize(),
+                                     body=self.i18n['arch.custom_action.clean_cache.success'],
+                                     type_=MessageType.INFO)
+                return True
+            else:
+                watcher.show_message(title=self.i18n['arch.custom_action.clean_cache'].capitalize(),
+                                     body=self.i18n['arch.custom_action.clean_cache.fail'],
+                                     type_=MessageType.ERROR)
 
         return False
