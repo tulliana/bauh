@@ -356,3 +356,4 @@ action.disk_trim.error=There was a problem while optimizing the disk
 success=success
 amount=amount
 action.request_reboot.title=System restart
+finishing=finishing

@@ -363,3 +363,4 @@ action.disk_trim.error=Ocorreu um problema ao otimizar o disco
 success=sucesso
 amount=quantidade
 action.request_reboot.title=Reinicialização de sistema
+finishing=finalizando

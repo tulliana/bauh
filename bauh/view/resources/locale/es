@@ -358,3 +358,4 @@ action.disk_trim.error=Hubo un problema al optimizar el disco
 success=éxito
 amount=cantidad
 action.request_reboot.title=Reinicio de sistema
+finishing=finalizando

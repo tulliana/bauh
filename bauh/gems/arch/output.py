@@ -64,8 +64,10 @@ class TransactionStatusHandler(Thread):
             else:
                 performed = self.upgrading + self.installing
                 if performed == self.npkgs:
-                    self.watcher.change_substatus("")
+                    self.watcher.change_substatus(self.i18n['finishing'].capitalize())
                     return False
+                else:
+                    self.watcher.change_substatus('')
 
         return True
 
