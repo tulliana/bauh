@@ -161,7 +161,26 @@ class ArchManager(SoftwareManager):
         self.categories = {}
         self.deps_analyser = DependenciesAnalyser(self.aur_client, self.i18n)
         self.http_client = context.http_client
-        self.custom_actions = None
+        self.custom_actions = {
+            'sys_up': CustomSoftwareAction(i18_label_key='arch.custom_action.upgrade_system',
+                                           i18n_status_key='arch.custom_action.upgrade_system.status',
+                                           manager_method='upgrade_system',
+                                           icon_path=get_icon_path(),
+                                           requires_root=True,
+                                           manager=self),
+            'ref_dbs': CustomSoftwareAction(i18_label_key='arch.custom_action.refresh_dbs',
+                                            i18n_status_key='arch.sync_databases.substatus',
+                                            manager_method='sync_databases',
+                                            icon_path=get_icon_path(),
+                                            requires_root=True,
+                                            manager=self),
+            'ref_mirrors': CustomSoftwareAction(i18_label_key='arch.custom_action.refresh_mirrors',
+                                                i18n_status_key='arch.task.mirrors',
+                                                manager_method='refresh_mirrors',
+                                                icon_path=get_icon_path(),
+                                                requires_root=True,
+                                                manager=self)
+        }
         self.index_aur = None
 
     @staticmethod
@@ -1737,31 +1756,19 @@ class ArchManager(SoftwareManager):
             pass  # when nothing is returned, the upgrade is called off by the UI
 
     def get_custom_actions(self) -> List[CustomSoftwareAction]:
-        if self.custom_actions is None:
-            default_icon_path = get_icon_path()
-            self.custom_actions = [
-                CustomSoftwareAction(i18_label_key='arch.custom_action.upgrade_system',
-                                     i18n_status_key='arch.custom_action.upgrade_system.status',
-                                     manager_method='upgrade_system',
-                                     icon_path=get_repo_icon_path(),
-                                     requires_root=True,
-                                     manager=self),
-                CustomSoftwareAction(i18_label_key='arch.custom_action.refresh_dbs',
-                                     i18n_status_key='arch.sync_databases.substatus',
-                                     manager_method='sync_databases',
-                                     icon_path=default_icon_path,
-                                     requires_root=True,
-                                     manager=self)]
+        actions = []
 
-            if pacman.is_mirrors_available():
-                self.custom_actions.insert(1, CustomSoftwareAction(i18_label_key='arch.custom_action.refresh_mirrors',
-                                                                   i18n_status_key='arch.task.mirrors',
-                                                                   manager_method='refresh_mirrors',
-                                                                   icon_path=default_icon_path,
-                                                                   requires_root=True,
-                                                                   manager=self))
+        arch_config = read_config()
 
-        return self.custom_actions
+        if pacman.is_mirrors_available():
+            actions.append(self.custom_actions['ref_mirrors'])
+
+        actions.append(self.custom_actions['ref_dbs'])
+
+        if bool(arch_config['repositories']):
+            actions.append(self.custom_actions['sys_up'])
+
+        return actions
 
     def fill_sizes(self, pkgs: List[ArchPackage]):
         installed, new, all_names, installed_names = [], [], [], []
