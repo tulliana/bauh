@@ -62,12 +62,13 @@ class TransactionStatusHandler(Thread):
                                                                                 self.i18n['manage_window.status.installing'].capitalize(),
                                                                                 output.split(' ')[1].strip()))
             else:
-                performed = self.upgrading + self.installing
-                if performed == self.npkgs:
+                performed = self.get_performed()
+
+                if performed == 0 and self.downloading > 0:
+                    self.watcher.change_substatus('')
+                elif performed == self.npkgs:
                     self.watcher.change_substatus(self.i18n['finishing'].capitalize())
                     return False
-                else:
-                    self.watcher.change_substatus('')
 
         return True
 
