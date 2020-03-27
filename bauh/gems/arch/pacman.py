@@ -1,6 +1,5 @@
 import os
 import re
-from pathlib import Path
 from threading import Thread
 from typing import List, Set, Tuple, Dict, Iterable
 
@@ -768,7 +767,7 @@ def get_cache_dir() -> str:
     dir_pattern = re.compile(r'.*CacheDir\s*=\s*.+')
 
     if os.path.exists('/etc/pacman.conf'):
-        with open('{}/{}'.format(str(Path.home()), '/etc/pacman.conf')) as f:
+        with open('/etc/pacman.conf') as f:
             config_str = f.read()
 
         cache_dirs = []
