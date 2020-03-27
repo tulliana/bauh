@@ -1853,6 +1853,7 @@ class ArchManager(SoftwareManager):
         success, output = handler.handle_simple(pacman.upgrade_system(root_password))
 
         if success:
+            database.register_sync(self.logger)
             msg = '<p>{}</p><br/>{}</p><p>{}</p>'.format(self.i18n['action.update.success.reboot.line1'],
                                                          self.i18n['action.update.success.reboot.line2'],
                                                          self.i18n['action.update.success.reboot.line3'])
