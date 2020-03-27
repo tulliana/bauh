@@ -1889,9 +1889,9 @@ class ArchManager(SoftwareManager):
                                  type_=MessageType.WARNING)
             return False
 
-        text = '<p>{}.</p><p>{}.</p><p>{}.</p>'.format(self.i18n['arch.custom_action.clean_cache.msg_1'],
-                                                       self.i18n['arch.custom_action.clean_cache.msg_2'],
-                                                       self.i18n['arch.custom_action.clean_cache.msg_3'])
+        text = '<p>{}.</p><p>{}.</p><p>{}.</p>'.format(self.i18n['arch.custom_action.clean_cache.msg1'],
+                                                       self.i18n['arch.custom_action.clean_cache.msg2'],
+                                                       self.i18n['arch.custom_action.clean_cache.msg3'])
 
         if watcher.request_confirmation(title=self.i18n['arch.custom_action.clean_cache'].capitalize(),
                                         body=text,
