@@ -39,7 +39,7 @@ class Prepare(QThread, TaskManager):
         self.signal_ask_password.emit()
 
         while self.waiting_password:
-            pass  # waiting for user input
+            time.sleep(0.1)  # waiting for user input
 
         return self.password_response
 
