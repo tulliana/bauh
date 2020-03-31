@@ -27,6 +27,9 @@ class RadioButtonQt(QRadioButton):
         self.model_parent = model_parent
         self.toggled.connect(self._set_checked)
 
+        if model.icon_path:
+            self.setIcon(QIcon(model.icon_path))
+
         if self.model.read_only:
             self.setAttribute(Qt.WA_TransparentForMouseEvents)
             self.setFocusPolicy(Qt.NoFocus)
