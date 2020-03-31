@@ -182,7 +182,6 @@ arch.action.db_locked.error=Não foi possível desbloquear o banco de dados.
 arch.dialog.providers.line1=Existem multiplos provedores para algumas das dependências
 arch.dialog.providers.line2=Marque os que desejados
 arch.providers=provedores
-arch.providers=providers
 arch.custom_action.clean_cache=Limpar cache
 arch.custom_action.clean_cache.status=Limpando cache
 arch.custom_action.clean_cache.no_dir=O diretório de cache {} não existe

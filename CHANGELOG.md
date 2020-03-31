@@ -28,14 +28,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Custom actions
         - **Install AppImage file**: allows to install a external AppImage file
         - **Upgrade file**: allows to upgrade a manually installed AppImage file
+- CLI:
+    - a beginning for the command line mode (`bauh-cli`). Only **list updates** command is available for now ( `bauh-cli updates` ) [#54](https://github.com/vinifmor/bauh/issues/54)
  - Core
     - allowing to trim the disk after all upgrades are applied ( **disabled by default**. It can be enabled on settings )      
     
 ### Improvements
-- new parameters
-    - `--settings`: opens only the settings panel
 - now the root password is asked only once ( can be disabled through the new settings property `store_root_password` )
 - new upgrade model: now all packages selected to upgrade are handled at once by the underlying gem
+- new parameters
+    - `--settings`: opens only the settings panel
+- adding mutual exclusion to some parameters (`--settings`, `--tray`, `--reset`)
 - Arch
     - dialog design when the package cannot be uninstalled due to required packages
     - dependency checking algorithm: 
@@ -51,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - displaying the upgrade size ( Flatpak, AppImage and Arch )
     - tray
         - sorting types on update notification
+        - treated as an application apart and not sharing the memory with the management panel ( first step to reduce its memory usage ) 
     
 ### Fixes
 - table not displaying all updates when the "updates filter" is clicked several times
@@ -65,6 +69,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - **disk_cache** dropped ( now is always enabled )
 - Arch / AUR:
     - **transitive_checking** dropped ( now is always enabled )
+    
+### Params / Environment Variables
+- param **--show-panel** dropped
+- env var **BAUH_TRAY** dropped
 
 ### i18n
     - Russian ( ru )

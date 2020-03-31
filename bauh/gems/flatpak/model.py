@@ -50,7 +50,7 @@ class FlatpakApplication(SoftwarePackage):
         return self.get_default_icon_path()
 
     def is_application(self):
-        return not self.runtime or not self.partial
+        return not self.runtime and not self.partial
 
     def get_disk_cache_path(self):
         return super(FlatpakApplication, self).get_disk_cache_path() + '/installed/' + self.id

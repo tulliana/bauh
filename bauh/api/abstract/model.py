@@ -211,18 +211,19 @@ class SoftwarePackage(ABC):
 
 class PackageUpdate:
 
-    def __init__(self, pkg_id: str, version: str, pkg_type: str):
+    def __init__(self, pkg_id: str, version: str, pkg_type: str, name: str):
         """
         :param pkg_id: an unique package identifier
         :param version: the new version
         :param pkg_type: the package type
         """
         self.id = pkg_id
+        self.name = name
         self.version = version
         self.type = pkg_type
 
     def __str__(self):
-        return '{} (id={}, type={}, new_version={})'.format(self.__class__.__name__, self.id, self.type, self.type)
+        return '{} (id={}, name={}, version={}, type={})'.format(self.__class__.__name__, self.id, self.name, self.version, self.type)
 
 
 class PackageHistory:

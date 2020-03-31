@@ -34,16 +34,12 @@ def get_default_icon() -> Tuple[str, QIcon]:
         return path, QIcon(path)
 
 
-def restart_app(show_panel: bool):
+def restart_app():
     """
     :param show_panel: if the panel should be displayed after the app restart
     :return:
     """
     restart_cmd = [sys.executable, *sys.argv]
-
-    if show_panel:
-        restart_cmd.append('--show-panel')
-
     subprocess.Popen(restart_cmd)
     QCoreApplication.exit()
 

@@ -1174,22 +1174,28 @@ class ArchManager(SoftwareManager):
         self.logger.info("Took {0:.2f} seconds to check for missing dependencies".format(tf - ti))
 
         if missing_deps is None:
-            return False  # called of by the user
+            return False  # called off by the user
 
-        if missing_deps and not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
-            return False
-
-        return True
+        if not missing_deps:
+            return
+        elif not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
+            return False  # called off by the user or something went wrong
+        else:
+            return True
 
     def _handle_deps_and_keys(self, context: TransactionContext) -> bool:
         context.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(context.name)))
 
         if not context.config['simple_checking']:
-            if not self._handle_missing_deps(context):
+            handled_deps = self._handle_missing_deps(context)
+            if handled_deps is False:
                 return False
-
-            # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
-            return self._handle_deps_and_keys(context)
+            elif handled_deps is True:
+                # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
+                return self._handle_deps_and_keys(context)
+            else:
+                # no missing deps
+                pass
 
         ti = time.time()
         check_res = makepkg.check(context.project_dir,
@@ -1599,7 +1605,7 @@ class ArchManager(SoftwareManager):
 
     def list_updates(self, internet_available: bool) -> List[PackageUpdate]:
         installed = self.read_installed(disk_loader=None, internet_available=internet_available).installed
-        return [PackageUpdate(p.name, p.latest_version, self.i18n['gem.arch.type.{}.label'.format(p.get_type())]) for p in installed if p.update]
+        return [PackageUpdate(p.name, p.latest_version, p.get_update_type(), p.name) for p in installed if p.update]
 
     def list_warnings(self, internet_available: bool) -> List[str]:
         warnings = []

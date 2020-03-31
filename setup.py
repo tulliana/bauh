@@ -1,5 +1,6 @@
 
 import os
+
 from setuptools import setup, find_packages
 
 DESCRIPTION = (
@@ -36,7 +37,9 @@ setup(
     test_suite="tests",
     entry_points={
         "console_scripts": [
-            "{name}={name}.app:main".format(name=NAME)
+            "{name}={name}.app:main".format(name=NAME),
+            "{name}-tray={name}.app:tray".format(name=NAME),
+            "{name}-cli={name}.cli.app:main".format(name=NAME)
         ]
     },
     include_package_data=True,

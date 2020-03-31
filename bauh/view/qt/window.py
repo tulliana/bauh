@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from typing import List, Type, Set, Tuple
 
-from PyQt5.QtCore import QEvent, Qt, QSize, pyqtSignal, QCoreApplication
+from PyQt5.QtCore import QEvent, Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QIcon, QWindowStateChangeEvent, QCursor
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QCheckBox, QHeaderView, QToolBar, \
     QLabel, QPlainTextEdit, QLineEdit, QProgressBar, QPushButton, QComboBox, QApplication, QListView, QSizePolicy, \
@@ -18,6 +18,7 @@ from bauh.api.http import HttpClient
 from bauh.commons import user
 from bauh.commons.html import bold
 from bauh.gems.web import TEMP_PATH
+from bauh.view.core.tray_client import notify_tray
 from bauh.view.qt import dialog, commons, qt_utils, root
 from bauh.view.qt.about import AboutDialog
 from bauh.view.qt.apps_table import AppsTable, UpdateToggleButton
@@ -51,12 +52,11 @@ class ManageWindow(QWidget):
     signal_table_update = pyqtSignal()
 
     def __init__(self, i18n: I18n, icon_cache: MemoryCache, manager: SoftwareManager, screen_size, config: dict,
-                 context: ApplicationContext, http_client: HttpClient, logger: logging.Logger, icon: QIcon, tray_icon=None):
+                 context: ApplicationContext, http_client: HttpClient, logger: logging.Logger, icon: QIcon):
         super(ManageWindow, self).__init__()
         self.i18n = i18n
         self.logger = logger
         self.manager = manager
-        self.tray_icon = tray_icon
         self.working = False  # restrict the number of threaded actions
         self.pkgs = []  # packages current loaded in the table
         self.pkgs_available = []  # all packages loaded in memory
@@ -368,9 +368,6 @@ class ManageWindow(QWidget):
         self.custom_actions = self.manager.get_custom_actions()
         self.ref_bt_custom_actions.setVisible(bool(self.custom_actions))
 
-    def set_tray_icon(self, tray_icon):
-        self.tray_icon = tray_icon
-
     def _update_process_progress(self, val: int):
         if self.progress_controll_enabled:
             self.thread_animate_progress.set_progress(val)
@@ -493,7 +490,7 @@ class ManageWindow(QWidget):
 
     def _show_about(self):
         if self.dialog_about is None:
-            self.dialog_about = AboutDialog(self.i18n)
+            self.dialog_about = AboutDialog(self.config)
 
         self.dialog_about.show()
 
@@ -545,14 +542,6 @@ class ManageWindow(QWidget):
             self._maximized = self.isMaximized()
             policy = QHeaderView.Stretch if self._maximized else QHeaderView.ResizeToContents
             self.table_apps.change_headers_policy(policy)
-
-    def closeEvent(self, event):
-        if self.tray_icon:
-            event.ignore()
-            self.hide()
-            self._handle_console_option(False)
-        else:
-            QCoreApplication.exit()  # needed because QuitOnLastWindowClosed is disabled
 
     def _handle_console(self, checked: bool):
 
@@ -639,8 +628,7 @@ class ManageWindow(QWidget):
             self.recent_uninstall = True
             self.refresh_packages(pkg_types={pkgv.model.__class__} if only_pkg_type else None)
 
-            if self.tray_icon:
-                self.tray_icon.verify_updates()
+            notify_tray()
         else:
             if self._can_notify_user():
                 util.notify_user('{}: {}'.format(pkgv.model.name, self.i18n['notification.uninstall.failed']))
@@ -659,8 +647,7 @@ class ManageWindow(QWidget):
 
             self.refresh_packages(pkg_types={res['app'].model.__class__} if len(self.pkgs) > 1 else None)
 
-            if self.tray_icon:
-                self.tray_icon.verify_updates(notify_user=False)
+            notify_tray()
         else:
             if self._can_notify_user():
                 util.notify_user(self.i18n['notification.downgrade.failed'])
@@ -927,8 +914,7 @@ class ManageWindow(QWidget):
 
             self.refresh_packages(pkg_types=res['types'])
 
-            if self.tray_icon:
-                self.tray_icon.verify_updates()
+            notify_tray()
         else:
             if self._can_notify_user():
                 util.notify_user(self.i18n['notification.update_selected.failed'])
@@ -1214,7 +1200,7 @@ class ManageWindow(QWidget):
         if self.settings_window:
             self.settings_window.handle_display()
         else:
-            self.settings_window = SettingsWindow(self.manager, self.i18n, self.screen_size, self.tray_icon, self)
+            self.settings_window = SettingsWindow(self.manager, self.i18n, self.screen_size, self)
             self.settings_window.setMinimumWidth(int(self.screen_size.width() / 4))
             self.settings_window.resize(self.size())
             self.settings_window.adjustSize()

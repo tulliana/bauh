@@ -1,7 +1,11 @@
 **bauh** ( ba-oo ), formerly known as **fpakman**, is a graphical interface for managing your Linux applications / packages. It is able to manage AUR, AppImage, Flatpak, Snap and native Web applications. When you launch **bauh** 
 a management panel will be displayed where you can search, update, install, uninstall and launch applications ( downgrading is also possible in some cases ).
 
-It has a **tray mode** ( see [Settings](https://github.com/vinifmor/bauh/tree/wgem#general-settings) ) that attaches itself as an icon to the system tray. The attached icon will get red when updates are available.
+It has a **tray mode** ( see [Settings](https://github.com/vinifmor/bauh/tree/wgem#general-settings) ) that attaches itself as an icon to the system tray ( the icon gets red when updates are available ). 
+Also a beginning for the command line mode ( `bauh-cli` ).
+
+
+
 
 This project has an official Twitter account ( **@bauh4linux** ) so people can stay on top of its news.
 
@@ -234,10 +238,10 @@ environment:
 
 #### Environment variables / parameters
 You can change some application settings via environment variables or arguments (type ```bauh --help``` to get more information).
-- `BAUH_TRAY (--tray )`: if the tray icon and update-check daemon should be created. Use `0` (disable, default) or `1` (enable).
-- `BAUH_LOGS (--logs )`: its enables **bauh** logs (for debugging purposes). Use: `0` (disable, default) or `1` (enable)
-- `--settings`: it displays only the settings window 
+- `--tray`: if bauh should be attached to the system tray.
+- `--settings`: it displays only the settings window
 - `--reset`: it cleans all configurations and cached data stored in the HOME directory
+- `BAUH_LOGS (--logs )`: its enables **bauh** logs (for debugging purposes). Use: `0` (disable, default) or `1` (enable)
 
 #### General configuration file ( **~/.config/bauh/config.yml** )
 ```
@@ -275,6 +279,12 @@ Priority:
   1) Icon paths defined in **~/.config/bauh/config.yml**
   2) Icons from the system with the following names: `bauh_tray_default` and `bauh_tray_updates`
   3) Own packaged icons
+  
+
+#### CLI
+- It is a mode in which you can perform the same actions allowed in the GUI via command line. For now it is limited and only allows
+to check for new updates (`bauh-cli updates`).
+- To verify the available commands: `bauh-cli --help`. To list the command parameters: `bauh-cli [command] --help`. ( e.g: `bauh-cli updates --help`) 
 
 ### How to improve the performance
 - Disable the application types you do not want to deal with
