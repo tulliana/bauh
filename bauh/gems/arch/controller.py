@@ -30,8 +30,8 @@ from bauh.commons.html import bold
 from bauh.commons.system import SystemProcess, ProcessHandler, new_subprocess, run_cmd, new_root_subprocess, \
     SimpleProcess
 from bauh.gems.arch import BUILD_DIR, aur, pacman, makepkg, message, confirmation, disk, git, \
-    gpg, URL_CATEGORIES_FILE, CATEGORIES_CACHE_DIR, CATEGORIES_FILE_PATH, CUSTOM_MAKEPKG_FILE, SUGGESTIONS_FILE, \
-    CONFIG_FILE, get_icon_path, database, mirrors, sorting, cpu_manager
+    gpg, URL_CATEGORIES_FILE, CATEGORIES_FILE_PATH, CUSTOM_MAKEPKG_FILE, SUGGESTIONS_FILE, \
+    CONFIG_FILE, get_icon_path, database, mirrors, sorting, cpu_manager, ARCH_CACHE_PATH
 from bauh.gems.arch.aur import AURClient
 from bauh.gems.arch.config import read_config
 from bauh.gems.arch.dependencies import DependenciesAnalyser
@@ -450,6 +450,7 @@ class ArchManager(SoftwareManager):
                               i18n=self.i18n,
                               installed=True,
                               repository=repo_map.get(name))
+            pkg.categories = self.categories.get(pkg.name)
             pkg.downgrade_enabled = True
             if updates:
                 update_version = updates.get(pkg.name)
@@ -1584,16 +1585,15 @@ class ArchManager(SoftwareManager):
         if arch_config['aur']:
             ArchCompilationOptimizer(arch_config, self.i18n, self.context.logger, task_manager).start()
 
-        if arch_config['aur']:
-            CategoriesDownloader(id_='AUR', http_client=self.context.http_client, logger=self.context.logger,
-                                 manager=self, url_categories_file=URL_CATEGORIES_FILE, disk_cache_dir=CATEGORIES_CACHE_DIR,
-                                 categories_path=CATEGORIES_FILE_PATH,
-                                 before=lambda: self._start_category_task(task_manager),
-                                 after=lambda: self._finish_category_task(task_manager)).start()
+        CategoriesDownloader(id_='Arch', http_client=self.context.http_client, logger=self.context.logger,
+                             manager=self, url_categories_file=URL_CATEGORIES_FILE, disk_cache_dir=ARCH_CACHE_PATH,
+                             categories_path=CATEGORIES_FILE_PATH,
+                             before=lambda: self._start_category_task(task_manager),
+                             after=lambda: self._finish_category_task(task_manager)).start()
 
-            if internet_available:
-                self.index_aur = AURIndexUpdater(self.context)
-                self.index_aur.start()
+        if arch_config['aur'] and internet_available:
+            self.index_aur = AURIndexUpdater(self.context)
+            self.index_aur.start()
 
         refresh_mirrors = None
         if internet_available and arch_config['repositories'] and arch_config['refresh_mirrors_startup'] \
