@@ -803,7 +803,7 @@ class CustomAction(AsyncAction):
     def run(self):
         if self.custom_action.backup:
             app_config = read_config()
-            if not self.request_backup(app_config, self.i18n, self.root_pwd):
+            if not self.request_backup(app_config, None, self.i18n, self.root_pwd):
                 self.notify_finished({'success': False, 'pkg': self.pkg})
                 self.pkg = None
                 self.custom_action = None
