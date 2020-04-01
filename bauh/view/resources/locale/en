@@ -326,3 +326,4 @@ action.backup.error.create=It was not possible to generate a new system copy
 action.backup.msg=Do you want to generate a system copy before proceeding ?
 action.backup.substatus.delete=Removing old system backups
 action.backup.substatus.create=Generating a new system backup
+custom_action.proceed_with=Proceed with {} ?

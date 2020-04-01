@@ -365,3 +365,4 @@ action.backup.error.create=No fue posible generar una nueva copia de seguridad
 action.backup.msg=¿Desea generar una copia de seguridad del sistema antes de continuar?
 action.backup.substatus.delete=Eliminando copias de seguridad antiguas
 action.backup.substatus.create=Generando una nueva copia de seguridad
+custom_action.proceed_with=¿Continuar con {}?
