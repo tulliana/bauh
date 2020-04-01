@@ -152,17 +152,20 @@ class AsyncAction(QThread, ProcessWatcher):
 
     def request_backup(self, app_config: dict, key: str, i18n: I18n, root_password: str = None) -> bool:
         if bool(app_config['backup']['enabled']) and timeshift.is_available():
-            val = app_config['backup'][key]
+            if key:
+                val = app_config['backup'][key]
 
-            if val is None:  # ask mode
-                if self.request_confirmation(title=i18n['core.config.tab.backup'],
-                                             body=i18n['action.backup.msg'],
-                                             confirmation_label=i18n['yes'].capitalize(),
-                                             deny_label=i18n['no'].capitalize()):
+                if val is None:  # ask mode
+                    if self.request_confirmation(title=i18n['core.config.tab.backup'],
+                                                 body=i18n['action.backup.msg'],
+                                                 confirmation_label=i18n['yes'].capitalize(),
+                                                 deny_label=i18n['no'].capitalize()):
+                        return self._generate_backup(app_config, i18n, root_password)
+
+                elif val is True:  # direct mode
                     return self._generate_backup(app_config, i18n, root_password)
-
-            elif val is True:  # direct mode
-                return self._generate_backup(app_config, i18n, root_password)
+            else:
+                return self._generate_backup(app_config, i18n, root_password)  # direct mode
 
         return True
 
@@ -794,14 +797,23 @@ class CustomAction(AsyncAction):
         self.manager = manager
         self.pkg = pkg
         self.custom_action = custom_action
-        self.root_password = root_password
+        self.root_pwd = root_password
         self.i18n = i18n
 
     def run(self):
+        if self.custom_action.backup:
+            app_config = read_config()
+            if not self.request_backup(app_config, self.i18n, self.root_pwd):
+                self.notify_finished({'success': False, 'pkg': self.pkg})
+                self.pkg = None
+                self.custom_action = None
+                self.root_pwd = None
+                return
+
         try:
             success = self.manager.execute_custom_action(action=self.custom_action,
                                                          pkg=self.pkg.model if self.pkg else None,
-                                                         root_password=self.root_password,
+                                                         root_password=self.root_pwd,
                                                          watcher=self)
         except (requests.exceptions.ConnectionError, NoInternetException):
             success = False
@@ -810,7 +822,7 @@ class CustomAction(AsyncAction):
         self.notify_finished({'success': success, 'pkg': self.pkg})
         self.pkg = None
         self.custom_action = None
-        self.root_password = None
+        self.root_pwd = None
 
 
 class GetScreenshots(AsyncAction):

@@ -166,6 +166,7 @@ class ArchManager(SoftwareManager):
                                            manager_method='upgrade_system',
                                            icon_path=get_icon_path(),
                                            requires_root=True,
+                                           backup=True,
                                            manager=self),
             'ref_dbs': CustomSoftwareAction(i18_label_key='arch.custom_action.refresh_dbs',
                                             i18n_status_key='arch.sync_databases.substatus',
