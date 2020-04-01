@@ -1196,41 +1196,22 @@ class ArchManager(SoftwareManager):
     def _handle_deps_and_keys(self, context: TransactionContext) -> bool:
         context.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(context.name)))
 
-        if not context.config['simple_checking']:
-            handled_deps = self._handle_missing_deps(context)
-            if handled_deps is False:
-                return False
-            elif handled_deps is True:
-                # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
-                return self._handle_deps_and_keys(context)
-            else:
-                # no missing deps
-                pass
+        handled_deps = self._handle_missing_deps(context)
+        if handled_deps is False:
+            return False
+        elif handled_deps is True:
+            # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
+            return self._handle_deps_and_keys(context)
+        else:
+            # no missing deps
+            pass
 
-        ti = time.time()
         check_res = makepkg.check(context.project_dir,
                                   optimize=bool(context.config['optimize']),
-                                  missing_deps=bool(context.config['simple_checking']),
+                                  missing_deps=False,
                                   handler=context.handler)
 
         if check_res:
-            if check_res.get('missing_deps'):
-                context.watcher.change_substatus(self.i18n['arch.checking.missing_deps'].format(bold(context.name)))
-                missing_deps = self._map_unknown_missing_deps(check_res['missing_deps'], context.watcher)
-                tf = time.time()
-                self.logger.info("Took {0:.2f} seconds to verify missing dependencies".format(tf - ti))
-
-                if missing_deps is None:
-                    return False
-
-                # TODO handle provided for simple pacman checking
-
-                if not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
-                    return False
-
-                # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
-                return self._handle_deps_and_keys(self.context)
-
             if check_res.get('gpg_key'):
                 if context.watcher.request_confirmation(title=self.i18n['arch.aur.install.unknown_key.title'],
                                                         body=self.i18n['arch.install.aur.unknown_key.body'].format(bold(context.name), bold(check_res['gpg_key']))):
@@ -1715,11 +1696,6 @@ class ArchManager(SoftwareManager):
                                     tooltip_key='arch.config.optimize.tip',
                                     value=bool(local_config['optimize']),
                                     max_width=max_width),
-            self._gen_bool_selector(id_='simple_dep_check',
-                                    label_key='arch.config.simple_dep_check',
-                                    tooltip_key='arch.config.simple_dep_check.tip',
-                                    value=bool(local_config['simple_checking']),
-                                    max_width=max_width),
             self._gen_bool_selector(id_='sync_dbs',
                                     label_key='arch.config.sync_dbs',
                                     tooltip_key='arch.config.sync_dbs.tip',
@@ -1755,7 +1731,6 @@ class ArchManager(SoftwareManager):
         config['optimize'] = form_install.get_component('opts').get_selected()
         config['sync_databases'] = form_install.get_component('sync_dbs').get_selected()
         config['sync_databases_startup'] = form_install.get_component('sync_dbs_start').get_selected()
-        config['simple_checking'] = form_install.get_component('simple_dep_check').get_selected()
         config['clean_cached'] = form_install.get_component('clean_cached').get_selected()
         config['refresh_mirrors_startup'] = form_install.get_component('ref_mirs').get_selected()
         config['mirrors_sort_limit'] = form_install.get_component('mirrors_sort_limit').get_int_value()

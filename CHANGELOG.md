@@ -72,6 +72,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - **disk_cache** dropped ( now is always enabled )
 - Arch / AUR:
     - **transitive_checking** dropped ( now is always enabled )
+    - **simple_checking** dropped ( now is always disabled )
     
 ### Params / Environment Variables
 - param **--show-panel** dropped

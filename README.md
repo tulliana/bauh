@@ -53,7 +53,7 @@ It may require **sudo**, but prefer the **Manual installation** described below 
 - If you prefer a manual and isolated installation, open your favorite terminal application and type the following commands:
 
 ```
-python3 -m venv bauh_env ( creates a virtualenv in a folder called **bauh_env** )
+python3 -m venv bauh_env ( creates a virtualenv in a folder called "bauh_env" )
 bauh_env/bin/pip install bauh ( installs bauh in the isolated environment )
 bauh_env/bin/bauh  ( launches bauh )
 
@@ -176,7 +176,6 @@ db_updater:
 optimize: true  # if 'false': disables the auto-compilation improvements
 sync_databases: true # package databases synchronization once a day before the first package installation / upgrade / downgrade
 sync_databases_startup: true  # package databases synchronization once a day during startup
-simple_checking: false  # defines how the missing dependencies checking process should be done before installing a package. When set to 'false' an algorithm combining pacman's methods and AUR's API is used ( currently slower, but more accurate ), whereas 'false' relies only on pacman's methods ( faster. but currently not always accurate )
 clean_cached: true  # defines if old cached versions should be removed from the disk cache during a package uninstallation
 refresh_mirrors_startup: false # if the package mirrors should be refreshed during startup
 mirrors_sort_limit: 10  # defines the maximum number of mirrors that will be used for speed sorting. Use 0 for no limit or leave it blank to disable sorting. 
