@@ -152,20 +152,17 @@ class AsyncAction(QThread, ProcessWatcher):
 
     def request_backup(self, app_config: dict, key: str, i18n: I18n, root_password: str = None) -> bool:
         if bool(app_config['backup']['enabled']) and timeshift.is_available():
-            if key:
-                val = app_config['backup'][key]
+            val = app_config['backup'][key] if key else None
 
-                if val is None:  # ask mode
-                    if self.request_confirmation(title=i18n['core.config.tab.backup'],
-                                                 body=i18n['action.backup.msg'],
-                                                 confirmation_label=i18n['yes'].capitalize(),
-                                                 deny_label=i18n['no'].capitalize()):
-                        return self._generate_backup(app_config, i18n, root_password)
-
-                elif val is True:  # direct mode
+            if val is None:  # ask mode
+                if self.request_confirmation(title=i18n['core.config.tab.backup'],
+                                             body=i18n['action.backup.msg'],
+                                             confirmation_label=i18n['yes'].capitalize(),
+                                             deny_label=i18n['no'].capitalize()):
                     return self._generate_backup(app_config, i18n, root_password)
-            else:
-                return self._generate_backup(app_config, i18n, root_password)  # direct mode
+
+            elif val is True:  # direct mode
+                return self._generate_backup(app_config, i18n, root_password)
 
         return True
 
