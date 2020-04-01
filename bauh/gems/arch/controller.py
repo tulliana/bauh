@@ -196,6 +196,10 @@ class ArchManager(SoftwareManager):
                 'googlechrome': 'google-chrome'}
 
     def refresh_mirrors(self, root_password: str, watcher: ProcessWatcher) -> bool:
+        handler = ProcessHandler(watcher)
+
+        if self._unlock_database(handler, root_password):
+            return False
 
         available_countries = pacman.list_mirror_countries()
         current_countries = pacman.get_current_mirror_countries()
@@ -239,9 +243,9 @@ class ArchManager(SoftwareManager):
         watcher.change_substatus(self.i18n['arch.custom_action.refresh_mirrors.status.updating'])
 
         if current_countries == countries:
-            success, output = ProcessHandler(watcher).handle_simple(pacman.refresh_mirrors(root_password))
+            success, output = handler.handle_simple(pacman.refresh_mirrors(root_password))
         else:
-            success, output = ProcessHandler(watcher).handle_simple(pacman.update_mirrors(root_password, countries))
+            success, output = handler.handle_simple(pacman.update_mirrors(root_password, countries))
 
         if not success:
             watcher.show_message(title=self.i18n["action.failed"].capitalize(),
@@ -253,7 +257,7 @@ class ArchManager(SoftwareManager):
 
         if sort_limit is not None and isinstance(sort_limit, int) and sort_limit >= 0:
             watcher.change_substatus(self.i18n['arch.custom_action.refresh_mirrors.status.sorting'])
-            ProcessHandler(watcher).handle_simple(pacman.sort_fastest_mirrors(root_password, sort_limit))
+            handler.handle_simple(pacman.sort_fastest_mirrors(root_password, sort_limit))
 
         mirrors.register_sync(self.logger)
 
@@ -261,7 +265,12 @@ class ArchManager(SoftwareManager):
         return self.sync_databases(root_password=root_password, watcher=watcher)
 
     def sync_databases(self, root_password: str, watcher: ProcessWatcher) -> bool:
-        success, output = ProcessHandler(watcher).handle_simple(pacman.sync_databases(root_password, force=True))
+        handler = ProcessHandler(watcher)
+
+        if not self._unlock_database(handler, root_password):
+            return False
+
+        success, output = handler.handle_simple(pacman.sync_databases(root_password, force=True))
 
         if not success:
             watcher.show_message(title=self.i18n["action.failed"].capitalize(),
@@ -609,7 +618,7 @@ class ArchManager(SoftwareManager):
 
         handler = ProcessHandler(watcher)
 
-        if self._is_database_locked(handler, root_password):
+        if self._unlock_database(handler, root_password):
             return False
 
         context = TransactionContext(name=pkg.name, base=pkg.get_base_name(), skip_opt_deps=True,
@@ -637,7 +646,7 @@ class ArchManager(SoftwareManager):
             return False
         return True
 
-    def _is_database_locked(self, handler: ProcessHandler, root_password: str) -> bool:
+    def _unlock_database(self, handler: ProcessHandler, root_password: str) -> bool:
         if os.path.exists('/var/lib/pacman/db.lck'):
             handler.watcher.print('pacman database is locked')
             msg = '<p>{}</p><p>{}</p><br/>'.format(self.i18n['arch.action.db_locked.body.l1'],
@@ -672,7 +681,7 @@ class ArchManager(SoftwareManager):
 
         handler = ProcessHandler(watcher)
 
-        if self._is_database_locked(handler, root_password):
+        if self._unlock_database(handler, root_password):
             watcher.change_substatus('')
             return False
 
@@ -770,7 +779,7 @@ class ArchManager(SoftwareManager):
         handler = ProcessHandler(watcher)
         arch_config = read_config()
 
-        if self._is_database_locked(handler, root_password):
+        if self._unlock_database(handler, root_password):
             return False
 
         watcher.change_progress(10)
@@ -1484,7 +1493,7 @@ class ArchManager(SoftwareManager):
 
         handler = ProcessHandler(watcher) if not context else context.handler
 
-        if self._is_database_locked(handler, root_password):
+        if self._unlock_database(handler, root_password):
             return False
 
         if context:
