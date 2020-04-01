@@ -159,10 +159,14 @@ class AsyncAction(QThread, ProcessWatcher):
                                              body=i18n['action.backup.msg'],
                                              confirmation_label=i18n['yes'].capitalize(),
                                              deny_label=i18n['no'].capitalize()):
-                    return self._generate_backup(app_config, i18n, root_password)
+                    res = self._generate_backup(app_config, i18n, root_password)
+                    self.change_substatus('')
+                    return res
 
             elif val is True:  # direct mode
-                return self._generate_backup(app_config, i18n, root_password)
+                res = self._generate_backup(app_config, i18n, root_password)
+                self.change_substatus('')
+                return res
 
         return True
 
