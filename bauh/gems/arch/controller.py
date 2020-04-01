@@ -31,7 +31,7 @@ from bauh.commons.system import SystemProcess, ProcessHandler, new_subprocess, r
     SimpleProcess
 from bauh.gems.arch import BUILD_DIR, aur, pacman, makepkg, message, confirmation, disk, git, \
     gpg, URL_CATEGORIES_FILE, CATEGORIES_CACHE_DIR, CATEGORIES_FILE_PATH, CUSTOM_MAKEPKG_FILE, SUGGESTIONS_FILE, \
-    CONFIG_FILE, get_icon_path, database, mirrors, sorting
+    CONFIG_FILE, get_icon_path, database, mirrors, sorting, cpu_manager
 from bauh.gems.arch.aur import AURClient
 from bauh.gems.arch.config import read_config
 from bauh.gems.arch.dependencies import DependenciesAnalyser
@@ -1101,7 +1101,21 @@ class ArchManager(SoftwareManager):
 
         # building main package
         context.watcher.change_substatus(self.i18n['arch.building.package'].format(bold(context.name)))
-        pkgbuilt, output = makepkg.make(context.project_dir, optimize=bool(context.config['optimize']), handler=context.handler)
+        optimize = bool(context.config['optimize'])
+
+        cpu_optimized = False
+        if optimize and not cpu_manager.all_in_performance():
+            self.logger.info("Setting cpus to performance mode")
+            cpu_manager.set_mode('performance', context.root_password)
+            cpu_optimized = True
+
+        try:
+            pkgbuilt, output = makepkg.make(context.project_dir, optimize=optimize, handler=context.handler)
+        finally:
+            if cpu_optimized:
+                self.logger.info("Setting cpus to powersave mode")
+                cpu_manager.set_mode('powersave', context.root_password)
+
         self._update_progress(context, 65)
 
         if pkgbuilt:

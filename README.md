@@ -162,6 +162,8 @@ db_updater:
     b) same as previous, but related to **COMPRESSXZ** and **COMPRESSZST** definitions ( if '--threads=0' is not defined )
     
     c) **ccache** will be added to **BUILDENV** if it is installed on the system and already not defined 
+    
+    d) set the device processors to performance mode
 
     Obs: For more information about them, have a look at [Makepkg](https://wiki.archlinux.org/index.php/Makepkg)
 - During bauh initialization a full AUR normalized index is saved at **/tmp/bauh/arch/aur.txt**, and it will only be used if the AUR API cannot handle the number of matches for a given query.

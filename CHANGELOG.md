@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - mirrors refreshing on startup ( **disabled by default**. Can be enabled on settings -> **refresh_mirrors_startup** )
     - if the pacman database is locked, a dialog is displayed requesting if the database should be unlocked to proceed with the ongoing action
     - able to handle the installation of dependencies with multiple providers
+    - the AUR compilation optimizations now include setting the device processors to **performance** mode
     - custom actions ( available through the new custom actions button )
         - **synchronize packages database**: synchronizes the database against the configured mirrors
         - **refresh mirrors**: allows the user to define multiple mirrors locations, sort by the fastest and update the packages database
