@@ -11,7 +11,7 @@ from bauh.api.abstract.controller import SoftwareManager
 from bauh.api.abstract.view import ViewComponent, TabComponent, InputOption, TextComponent, MultipleSelectComponent, \
     PanelComponent, FormComponent, TabGroupComponent, SingleSelectComponent, SelectViewType, TextInputComponent, \
     FileChooserComponent
-from bauh.view.core import config
+from bauh.view.core import config, timeshift
 from bauh.view.core.config import read_config
 from bauh.view.util import translation
 from bauh.view.util.translation import I18n
@@ -69,6 +69,11 @@ class GenericSettingsManager:
         tabs.append(self._gen_ui_settings(core_config, screen_width, screen_height))
         tabs.append(self._gen_tray_settings(core_config, screen_width, screen_height))
         tabs.append(self._gen_adv_settings(core_config, screen_width, screen_height))
+
+        bkp_settings = self._gen_backup_settings(core_config, screen_width, screen_height)
+
+        if bkp_settings:
+            tabs.append(bkp_settings)
 
         for tab in gem_tabs:
             tabs.append(tab)
@@ -250,6 +255,7 @@ class GenericSettingsManager:
 
     def _save_settings(self, general: PanelComponent,
                        advanced: PanelComponent,
+                       backup: PanelComponent,
                        ui: PanelComponent,
                        tray: PanelComponent,
                        gems_panel: PanelComponent) -> Tuple[bool, List[str]]:
@@ -286,6 +292,17 @@ class GenericSettingsManager:
         core_config['memory_cache']['icon_expiration'] = icon_exp
 
         core_config['disk']['trim_after_update'] = adv_form.get_component('trim_after_update').get_selected()
+
+        # backup
+        if backup:
+            bkp_form = backup.components[0]
+
+            core_config['backup']['enabled'] = bkp_form.get_component('enabled').get_selected()
+            core_config['backup']['mode'] = bkp_form.get_component('mode').get_selected()
+            core_config['backup']['install'] = bkp_form.get_component('install').get_selected()
+            core_config['backup']['uninstall'] = bkp_form.get_component('uninstall').get_selected()
+            core_config['backup']['upgrade'] = bkp_form.get_component('upgrade').get_selected()
+            core_config['backup']['downgrade'] = bkp_form.get_component('downgrade').get_selected()
 
         # tray
         tray_form = tray.components[0]
@@ -339,9 +356,11 @@ class GenericSettingsManager:
 
         saved, warnings = True, []
 
+        bkp = component.get_tab('core.bkp')
         success, errors = self._save_settings(general=component.get_tab('core.gen').content,
                                               advanced=component.get_tab('core.adv').content,
                                               tray=component.get_tab('core.tray').content,
+                                              backup=bkp.content if bkp else None,
                                               ui=component.get_tab('core.ui').content,
                                               gems_panel=component.get_tab('core.types').content)
 
@@ -371,3 +390,71 @@ class GenericSettingsManager:
                             warnings.extend(errors)
 
         return saved, warnings
+
+    def _gen_backup_settings(self, core_config: dict, screen_width: int, screen_height: int) -> TabComponent:
+        if timeshift.is_available():
+            default_width = floor(0.22 * screen_width)
+
+            enabled_opt = self._gen_bool_component(label=self.i18n['core.config.backup'],
+                                                   tooltip=None,
+                                                   value=bool(core_config['backup']['enabled']),
+                                                   id_='enabled',
+                                                   max_width=default_width)
+
+            ops_opts = [(self.i18n['yes'].capitalize(), True, None),
+                        (self.i18n['no'].capitalize(), False, None),
+                        (self.i18n['ask'].capitalize(), None, None)]
+
+            install_mode = self._gen_select(label=self.i18n['core.config.backup.install'],
+                                            tip=None,
+                                            value=core_config['backup']['install'],
+                                            opts=ops_opts,
+                                            max_width=default_width,
+                                            id_='install')
+
+            uninstall_mode = self._gen_select(label=self.i18n['core.config.backup.uninstall'],
+                                              tip=None,
+                                              value=core_config['backup']['uninstall'],
+                                              opts=ops_opts,
+                                              max_width=default_width,
+                                              id_='uninstall')
+
+            upgrade_mode = self._gen_select(label=self.i18n['core.config.backup.upgrade'],
+                                            tip=None,
+                                            value=core_config['backup']['upgrade'],
+                                            opts=ops_opts,
+                                            max_width=default_width,
+                                            id_='upgrade')
+
+            downgrade_mode = self._gen_select(label=self.i18n['core.config.backup.downgrade'],
+                                              tip=None,
+                                              value=core_config['backup']['downgrade'],
+                                              opts=ops_opts,
+                                              max_width=default_width,
+                                              id_='downgrade')
+
+            mode = self._gen_select(label=self.i18n['core.config.backup.mode'],
+                                              tip=None,
+                                              value=core_config['backup']['mode'],
+                                              opts=[
+                                                  (self.i18n['core.config.backup.mode.incremental'], 'incremental', self.i18n['core.config.backup.mode.incremental.tip']),
+                                                  (self.i18n['core.config.backup.mode.only_one'], 'only_one', self.i18n['core.config.backup.mode.only_one.tip'])
+                                              ],
+                                              max_width=default_width,
+                                              id_='mode')
+
+            sub_comps = [FormComponent([enabled_opt, mode, install_mode, uninstall_mode, upgrade_mode, downgrade_mode], spaces=False)]
+            return TabComponent(self.i18n['core.config.tab.backup'].capitalize(), PanelComponent(sub_comps), None, 'core.bkp')
+
+    def _gen_select(self, label: str, tip: str, id_: str, opts: List[tuple], value: str, max_width: int, type_: SelectViewType = SelectViewType.RADIO):
+        inp_opts = [InputOption(label=o[0].capitalize(), value=o[1], tooltip=o[2]) for o in opts]
+        def_opt = [o for o in inp_opts if o.value == value]
+        return SingleSelectComponent(label=label,
+                                     tooltip=tip,
+                                     options=inp_opts,
+                                     default_option=def_opt[0] if def_opt else inp_opts[0],
+                                     max_per_line=len(inp_opts),
+                                     max_width=max_width,
+                                     type_=type_,
+                                     id_=id_)
+

@@ -82,3 +82,6 @@ class SnapApplication(SoftwarePackage):
     def get_custom_supported_actions(self) -> List[CustomSoftwareAction]:
         if self.installed:
             return EXTRA_INSTALLED_ACTIONS
+
+    def supports_backup(self) -> bool:
+        return True

@@ -109,3 +109,6 @@ class AppImage(SoftwarePackage):
     def get_custom_supported_actions(self) -> List[CustomSoftwareAction]:
         if self.imported:
             return CUSTOM_ACTIONS
+
+    def supports_backup(self) -> bool:
+        return False

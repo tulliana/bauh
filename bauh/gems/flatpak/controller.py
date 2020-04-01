@@ -467,7 +467,7 @@ class FlatpakManager(SoftwareManager):
                         InputOption(label=self.i18n['flatpak.config.install_level.user'].capitalize(),
                                     value='user',
                                     tooltip=self.i18n['flatpak.config.install_level.user.tip']),
-                        InputOption(label=self.i18n['flatpak.config.install_level.ask'].capitalize(),
+                        InputOption(label=self.i18n['ask'].capitalize(),
                                     value=None,
                                     tooltip=self.i18n['flatpak.config.install_level.ask.tip'].format(app=self.context.app_name))]
         fields.append(SingleSelectComponent(label=self.i18n['flatpak.config.install_level'],

@@ -131,6 +131,9 @@ class ArchPackage(SoftwarePackage):
     def get_name_tooltip(self) -> str:
         return '{} ( {}: {} )'.format(self.name, self.i18n['repository'], self.repository)
 
+    def supports_backup(self) -> bool:
+        return True
+
     def __str__(self):
         return self.__repr__()
 

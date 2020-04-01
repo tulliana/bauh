@@ -2,10 +2,7 @@
 a management panel will be displayed where you can search, update, install, uninstall and launch applications ( downgrading is also possible in some cases ).
 
 It has a **tray mode** ( see [Settings](https://github.com/vinifmor/bauh/tree/wgem#general-settings) ) that attaches itself as an icon to the system tray ( the icon gets red when updates are available ). 
-Also a beginning for the command line mode ( `bauh-cli` ).
-
-
-
+Also a beginning for the command line mode ( `bauh-cli` ) and system backup integration (via Timeshift).
 
 This project has an official Twitter account ( **@bauh4linux** ) so people can stay on top of its news.
 
@@ -273,6 +270,14 @@ updates:
   check_interval: 30  # the updates checking interval in SECONDS
 disk:
     trim_after_update: false # it trims the hard disk after a successfull packages upgrade ( `fstrim -a -v` )
+backup:
+    enabled: true  # generate timeshift snapshots before an action ( if timeshift is installed on the system )
+    mode: 'incremental' # incremental=generates a new snapshot based on another pre-exising one. 'only_one'=deletes all pre-existing snapshots and generates a fresh one.
+    install: null  # defines if the backup should be performed before installing a package. Allowed values: null (a dialog will be displayed asking if a snapshot should be generated), true: generates the backup without asking. false: disables the backup for this operation
+    uninstall: null  # defines if the backup should be performed before uninstalling a package. Allowed values: null (a dialog will be displayed asking if a snapshot should be generated), true: generates the backup without asking. false: disables the backup for this operation
+    upgrade: null  # defines if the backup should be performed before upgrading a package. Allowed values: null (a dialog will be displayed asking if a snapshot should be generated), true: generates the backup without asking. false: disables the backup for this operation
+    downgrade: null  # defines if the backup should be performed before downgrading a package. Allowed values: null (a dialog will be displayed asking if a snapshot should be generated), true: generates the backup without asking. false: disables the backup for this operation
+    
 ```
 #### Tray icons
 Priority: 

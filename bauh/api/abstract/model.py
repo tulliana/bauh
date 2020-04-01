@@ -205,6 +205,10 @@ class SoftwarePackage(ABC):
         """
         return self.name
 
+    @abstractmethod
+    def supports_backup(self) -> bool:
+        pass
+
     def __str__(self):
         return '{} (id={}, name={})'.format(self.__class__.__name__, self.id, self.name)
 

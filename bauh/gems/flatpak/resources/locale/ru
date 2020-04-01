@@ -49,6 +49,5 @@ flatpak.config.install_level.system=Система
 flatpak.config.install_level.system.tip=Приложения будут установлены для всех пользователей устройства
 flatpak.config.install_level.user=Пользователь
 flatpak.config.install_level.user.tip=Приложение будет установлено только для текущего пользователя
-flatpak.config.install_level.ask=Спросить
 flatpak.config.install_level.ask.tip={app} запросит уровень, который должен быть применен во время установки приложения
 flatpak.config.install_level=Уровень

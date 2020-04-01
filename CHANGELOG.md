@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.9.0] - 2020
 ### Features
+- Backup
+    - now bauh integrates with timeshift ( if available on the system ) and can generate snapshots before installing, uninstalling, ...
+    - you can enable / disable this feature via the settings file or UI.
 - UI
     - new initialization dialog showing tasks that need to be done before using bauh
     - new custom actions button ( displays specific action available for each packaging provider )

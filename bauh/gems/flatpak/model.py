@@ -1,5 +1,3 @@
-import copy
-
 from bauh.api.abstract.model import SoftwarePackage, PackageStatus
 from bauh.commons import resource
 from bauh.gems.flatpak import ROOT_DIR
@@ -105,3 +103,6 @@ class FlatpakApplication(SoftwarePackage):
             return '{} ( {} )'.format(self.name, self.i18n[self.installation.lower()])
 
         return self.name
+
+    def supports_backup(self) -> bool:
+        return True

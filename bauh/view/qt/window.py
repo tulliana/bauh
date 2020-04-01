@@ -277,7 +277,7 @@ class ManageWindow(QWidget):
 
         self.thread_update = self._bind_async_action(UpgradeSelected(self.manager, self.i18n), finished_call=self._finish_update_selected)
         self.thread_refresh = self._bind_async_action(RefreshApps(self.manager), finished_call=self._finish_refresh_apps, only_finished=True)
-        self.thread_uninstall = self._bind_async_action(UninstallApp(self.manager, self.icon_cache), finished_call=self._finish_uninstall)
+        self.thread_uninstall = self._bind_async_action(UninstallApp(self.manager, self.icon_cache, self.i18n), finished_call=self._finish_uninstall)
         self.thread_get_info = self._bind_async_action(GetAppInfo(self.manager), finished_call=self._finish_get_info)
         self.thread_get_history = self._bind_async_action(GetAppHistory(self.manager, self.i18n), finished_call=self._finish_get_history)
         self.thread_search = self._bind_async_action(SearchPackages(self.manager), finished_call=self._finish_search, only_finished=True)
@@ -605,7 +605,7 @@ class ManageWindow(QWidget):
         self._begin_action('{} {}'.format(self.i18n['manage_window.status.uninstalling'], app.model.name), clear_filters=False)
 
         self.thread_uninstall.app = app
-        self.thread_uninstall.root_password = pwd
+        self.thread_uninstall.root_pwd = pwd
         self.thread_uninstall.start()
 
     def run_app(self, app: PackageView):
@@ -1017,7 +1017,7 @@ class ManageWindow(QWidget):
         self._begin_action('{} {}'.format(self.i18n['manage_window.status.downgrading'], pkgv.model.name))
 
         self.thread_downgrade.app = pkgv
-        self.thread_downgrade.root_password = pwd
+        self.thread_downgrade.root_pwd = pwd
         self.thread_downgrade.start()
 
     def get_app_info(self, pkg: dict):
@@ -1123,7 +1123,7 @@ class ManageWindow(QWidget):
         self._begin_action('{} {}'.format(self.i18n['manage_window.status.installing'], pkg.model.name))
 
         self.thread_install.pkg = pkg
-        self.thread_install.root_password = pwd
+        self.thread_install.root_pwd = pwd
         self.thread_install.start()
 
     def _finish_install(self, res: dict):
@@ -1185,7 +1185,7 @@ class ManageWindow(QWidget):
         self._begin_action('{}{}'.format(self.i18n[action.i18n_status_key], ' {}'.format(pkg.model.name) if pkg else ''))
 
         self.thread_custom_action.pkg = pkg
-        self.thread_custom_action.root_password = pwd
+        self.thread_custom_action.root_pwd = pwd
         self.thread_custom_action.custom_action = action
         self.thread_custom_action.start()
 

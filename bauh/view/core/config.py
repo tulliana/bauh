@@ -48,6 +48,14 @@ def read_config(update_file: bool = False) -> dict:
         'store_root_password': True,
         'disk': {
             'trim_after_update': False
+        },
+        'backup': {
+            'enabled': True,
+            'install': None,
+            'uninstall': None,
+            'downgrade': None,
+            'upgrade': None,
+            'mode': 'incremental'
         }
 
     }
