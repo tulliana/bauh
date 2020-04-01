@@ -42,7 +42,7 @@ class AsyncAction(QThread, ProcessWatcher):
         super(AsyncAction, self).__init__()
         self.wait_confirmation = False
         self.confirmation_res = None
-        self.root_pwd = None
+        self.root_password = None
         self.stop = False
 
     def request_confirmation(self, title: str, body: str, components: List[ViewComponent] = None, confirmation_label: str = None, deny_label: str = None, deny_button: bool = True) -> bool:
@@ -55,8 +55,8 @@ class AsyncAction(QThread, ProcessWatcher):
         self.wait_confirmation = True
         self.signal_root_password.emit()
         self.wait_user()
-        res = self.root_pwd
-        self.root_pwd = None
+        res = self.root_password
+        self.root_password = None
         return res
 
     def confirm(self, res: bool):
@@ -64,7 +64,7 @@ class AsyncAction(QThread, ProcessWatcher):
         self.wait_confirmation = False
 
     def set_root_password(self, password: str, valid: bool):
-        self.root_pwd = (password, valid)
+        self.root_password = (password, valid)
         self.wait_confirmation = False
 
     def wait_user(self):
