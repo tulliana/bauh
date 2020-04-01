@@ -198,7 +198,7 @@ class ArchManager(SoftwareManager):
     def refresh_mirrors(self, root_password: str, watcher: ProcessWatcher) -> bool:
         handler = ProcessHandler(watcher)
 
-        if self._unlock_database(handler, root_password):
+        if self._is_database_locked(handler, root_password):
             return False
 
         available_countries = pacman.list_mirror_countries()
@@ -267,7 +267,7 @@ class ArchManager(SoftwareManager):
     def sync_databases(self, root_password: str, watcher: ProcessWatcher) -> bool:
         handler = ProcessHandler(watcher)
 
-        if not self._unlock_database(handler, root_password):
+        if self._is_database_locked(handler, root_password):
             return False
 
         success, output = handler.handle_simple(pacman.sync_databases(root_password, force=True))
@@ -618,7 +618,7 @@ class ArchManager(SoftwareManager):
 
         handler = ProcessHandler(watcher)
 
-        if self._unlock_database(handler, root_password):
+        if self._is_database_locked(handler, root_password):
             return False
 
         context = TransactionContext(name=pkg.name, base=pkg.get_base_name(), skip_opt_deps=True,
@@ -646,7 +646,7 @@ class ArchManager(SoftwareManager):
             return False
         return True
 
-    def _unlock_database(self, handler: ProcessHandler, root_password: str) -> bool:
+    def _is_database_locked(self, handler: ProcessHandler, root_password: str) -> bool:
         if os.path.exists('/var/lib/pacman/db.lck'):
             handler.watcher.print('pacman database is locked')
             msg = '<p>{}</p><p>{}</p><br/>'.format(self.i18n['arch.action.db_locked.body.l1'],
@@ -681,7 +681,7 @@ class ArchManager(SoftwareManager):
 
         handler = ProcessHandler(watcher)
 
-        if self._unlock_database(handler, root_password):
+        if self._is_database_locked(handler, root_password):
             watcher.change_substatus('')
             return False
 
@@ -779,7 +779,7 @@ class ArchManager(SoftwareManager):
         handler = ProcessHandler(watcher)
         arch_config = read_config()
 
-        if self._unlock_database(handler, root_password):
+        if self._is_database_locked(handler, root_password):
             return False
 
         watcher.change_progress(10)
@@ -1493,7 +1493,7 @@ class ArchManager(SoftwareManager):
 
         handler = ProcessHandler(watcher) if not context else context.handler
 
-        if self._unlock_database(handler, root_password):
+        if self._is_database_locked(handler, root_password):
             return False
 
         if context:
@@ -1880,7 +1880,7 @@ class ArchManager(SoftwareManager):
             # watcher.change_substatus(self.i18n['arch.custom_action.upgrade_system.substatus'])
         handler = ProcessHandler(watcher)
 
-        if not self._unlock_database(handler, root_password):
+        if self._is_database_locked(handler, root_password):
             return False
 
         success, output = handler.handle_simple(pacman.upgrade_system(root_password))
