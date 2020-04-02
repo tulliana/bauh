@@ -1517,7 +1517,7 @@ class ArchManager(SoftwareManager):
 
     def _install_from_repository(self, context: TransactionContext) -> bool:
         try:
-            if not self._handle_missing_deps(context):
+            if self._handle_missing_deps(context) is False:
                 return False
         except PackageNotFoundException:
             self.logger.error("Package '{}' was not found")

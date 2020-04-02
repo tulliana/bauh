@@ -5,7 +5,8 @@ from bauh.api.abstract.view import MultipleSelectComponent, InputOption, FormCom
     SelectViewType
 from bauh.commons import resource
 from bauh.commons.html import bold
-from bauh.gems.arch import ROOT_DIR, get_repo_icon_path, get_icon_path
+from bauh.commons.system import get_human_size_str
+from bauh.gems.arch import ROOT_DIR, get_repo_icon_path, get_icon_path, pacman
 from bauh.view.util.translation import I18n
 
 
@@ -16,8 +17,16 @@ def _get_repo_icon(repository: str):
 def request_optional_deps(pkgname: str, pkg_repos: dict, watcher: ProcessWatcher, i18n: I18n) -> Set[str]:
     opts = []
 
+    repo_deps = [p for p, data in pkg_repos.items() if data['repository'] != 'aur']
+    sizes = pacman.get_update_size(repo_deps) if repo_deps else None
+
     for p, d in pkg_repos.items():
-        op = InputOption('{}{} ( {}: {} )'.format(p, ': ' + d['desc'] if d['desc'] else '', i18n['repository'], d['repository'].upper()), p)
+        size = sizes.get(p)
+        op = InputOption('{}{} ( {}: {} ) - {}: {}'.format(p, ': ' + d['desc'] if d['desc'] else '',
+                                                           i18n['repository'],
+                                                           d['repository'].upper(),
+                                                           i18n['size'].capitalize(),
+                                                           get_human_size_str(size) if size else '?'), p)
         op.icon_path = _get_repo_icon(d['repository'])
         opts.append(op)
 
@@ -40,8 +49,16 @@ def request_install_missing_deps(pkgname: str, deps: List[Tuple[str, str]], watc
 
     opts = []
 
+    repo_deps = [d[0] for d in deps if d[1] != 'aur']
+    sizes = pacman.get_update_size(repo_deps) if repo_deps else None
+
     for dep in deps:
-        op = InputOption('{} ( {}: {} )'.format(dep[0], i18n['repository'], dep[1].upper()), dep[0])
+        size = sizes.get(dep[0])
+        op = InputOption('{} ( {}: {} ) - {}: {}'.format(dep[0],
+                                                         i18n['repository'],
+                                                         dep[1].upper(),
+                                                         i18n['size'].capitalize(),
+                                                         get_human_size_str(size) if size else '?'), dep[0])
         op.read_only = True
         op.icon_path = _get_repo_icon(dep[1])
         opts.append(op)
