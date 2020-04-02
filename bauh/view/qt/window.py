@@ -863,9 +863,8 @@ class ManageWindow(QWidget):
                 cat_list.sort()
 
                 for idx, c in enumerate(cat_list):
-                    i18n_cat = self.i18n.get(c)
-                    cat_label = i18n_cat if i18n_cat else c
-                    self.combo_categories.addItem(cat_label.capitalize(), c)
+                    i18n_cat = self.i18n.get('category.{}'.format(c), self.i18n.get(c, c))
+                    self.combo_categories.addItem(i18n_cat.capitalize(), c)
 
                     if keeping_selected and c == self.category_filter:
                         selected_cat = idx + 1
