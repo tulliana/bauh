@@ -318,7 +318,7 @@ class UpgradeSelected(AsyncAction):
 
                 for dep in requirements.cannot_upgrade:
                     type_label = self.i18n.get('gem.{}.type.{}.label'.format(dep.pkg.gem_name, dep.pkg.get_type().lower()), dep.pkg.get_type().capitalize())
-                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(type_label, dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
+                    summary_text.write('\n * Type:{}\tName: {}\tVersion: {}\tReason: {}'.format(type_label, dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
 
                 summary_text.write('\n')
 
@@ -327,7 +327,7 @@ class UpgradeSelected(AsyncAction):
 
                 for dep in requirements.to_remove:
                     type_label = self.i18n.get('gem.{}.type.{}.label'.format(dep.pkg.gem_name, dep.pkg.get_type().lower()), dep.pkg.get_type().capitalize())
-                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(type_label, dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
+                    summary_text.write('\n * Type:{}\tName: {}\tVersion: {}\tReason: {}'.format(type_label, dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
 
                 summary_text.write('\n')
 
@@ -338,10 +338,10 @@ class UpgradeSelected(AsyncAction):
                     type_label = self.i18n.get(
                         'gem.{}.type.{}.label'.format(dep.pkg.gem_name, dep.pkg.get_type().lower()),
                         dep.pkg.get_type().capitalize())
-                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(type_label,
-                                                                                            dep.pkg.name,
-                                                                                            dep.pkg.version if dep.pkg.version else '?',
-                                                                                            dep.reason if dep.reason else '?'))
+                    summary_text.write('\n * Type:{}\tName: {}\tVersion: {}\tReason: {}'.format(type_label,
+                                                                                                dep.pkg.name,
+                                                                                                dep.pkg.version if dep.pkg.version else '?',
+                                                                                                dep.reason if dep.reason else '?'))
 
                 summary_text.write('\n')
 
@@ -351,10 +351,10 @@ class UpgradeSelected(AsyncAction):
                 for dep in requirements.to_upgrade:
                     type_label = self.i18n.get('gem.{}.type.{}.label'.format(dep.pkg.gem_name, dep.pkg.get_type().lower()), dep.pkg.get_type().capitalize())
                     summary_text.write(
-                        '\n * Type:{}\tName: {}\tVersion\tNew version: {}'.format(type_label,
-                                                                                  dep.pkg.name,
-                                                                                  dep.pkg.version if dep.pkg.version else '?',
-                                                                                  dep.pkg.latest_version if dep.pkg.latest_version else '?'))
+                        '\n * Type:{}\tName: {}\tVersion:{} \tNew version: {}'.format(type_label,
+                                                                                      dep.pkg.name,
+                                                                                      dep.pkg.version if dep.pkg.version else '?',
+                                                                                      dep.pkg.latest_version if dep.pkg.latest_version else '?'))
 
                 summary_text.write('\n')
 
