@@ -918,8 +918,8 @@ class ManageWindow(QWidget):
                     with open(logs_path, 'w+') as f:
                         f.write(output)
 
-                    self.textarea_output.appendPlainText('\n\n *Upgrade summary generated at: {}'.format(UpgradeSelected.SUMMARY_FILE.format(res['id'])))
-                    self.textarea_output.appendPlainText('\n *Upgrade logs generated at: {}'.format(logs_path))
+                    self.textarea_output.appendPlainText('\n*Upgrade summary generated at: {}'.format(UpgradeSelected.SUMMARY_FILE.format(res['id'])))
+                    self.textarea_output.appendPlainText('*Upgrade logs generated at: {}'.format(logs_path))
                 except:
                     traceback.print_exc()
 
