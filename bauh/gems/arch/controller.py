@@ -766,13 +766,17 @@ class ArchManager(SoftwareManager):
         watcher.change_substatus('')
         return True
 
-    def _uninstall(self, pkg_name: str, root_password: str, handler: ProcessHandler) -> bool:
-        res = handler.handle(SystemProcess(new_root_subprocess(['pacman', '-R', pkg_name, '--noconfirm'], root_password)))
+    def _uninstall(self, pkgs: Iterable[str], root_password: str, handler: ProcessHandler) -> bool:
+        res = handler.handle(SystemProcess(new_root_subprocess(['pacman', '-R', *pkgs, '--noconfirm'], root_password), wrong_error_phrase='warning:'))
 
-        if res:
-            cache_path = ArchPackage.disk_cache_path(pkg_name)
-            if os.path.exists(cache_path):
-                shutil.rmtree(cache_path)
+        installed = pacman.list_installed_names()
+
+        for p in pkgs:
+            if p not in installed:
+                cache_path = ArchPackage.disk_cache_path(p)
+                if os.path.exists(cache_path):
+                    shutil.rmtree(cache_path)
+
         return res
 
     def uninstall(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher) -> bool:
@@ -784,39 +788,45 @@ class ArchManager(SoftwareManager):
             return False
 
         watcher.change_progress(10)
-        info = pacman.get_info_dict(pkg.name)
+        required_by = self.deps_analyser.map_all_required_by({pkg.name}, set())
         watcher.change_progress(50)
 
-        if info.get('required by'):
-            pkname = bold(pkg.name)
+        to_uninstall = set()
+        to_uninstall.add(pkg.name)
 
-            reqs = [InputOption(label=p, value=p, icon_path=get_icon_path(), read_only=True) for p in
-                    info['required by']]
+        if required_by:
+            to_uninstall.update(required_by)
+
+            reqs = [InputOption(label=p, value=p, icon_path=get_icon_path(), read_only=True) for p in required_by]
             reqs_select = MultipleSelectComponent(options=reqs, default_options=set(reqs), label="", max_per_line=3)
 
-            msg = '<p>{}</p><p>{}</p>'.format(self.i18n['arch.uninstall.required_by'].format(pkname, bold(str(len(reqs)))),
-                                              self.i18n['arch.uninstall.required_by.advice'].format(pkname))
+            msg = '<p>{}</p><p>{}</p>'.format(self.i18n['arch.uninstall.required_by'].format(bold(pkg.name), bold(str(len(reqs)))),
+                                              self.i18n['arch.uninstall.required_by.advice'])
 
-            watcher.request_confirmation(title=self.i18n['action.not_allowed'].capitalize(),
-                                         body=msg,
-                                         components=[reqs_select],
-                                         confirmation_label=self.i18n['close'].capitalize(),
-                                         deny_button=False)
+            if not watcher.request_confirmation(title=self.i18n['action.not_allowed'].capitalize(),
+                                                body=msg,
+                                                components=[reqs_select],
+                                                confirmation_label=self.i18n['proceed'].capitalize(),
+                                                deny_label=self.i18n['cancel'].capitalize()):
+                watcher.print("Aborted")
+                return False
 
-            return False
+        uninstalled = self._uninstall(to_uninstall, root_password, handler)
 
-        uninstalled = self._uninstall(pkg.name, root_password, handler)
+        if uninstalled:
+            watcher.change_progress(70)
 
-        if pkg.repository != 'aur' and arch_config['clean_cached']:  # cleaning old versions
-            watcher.change_substatus(self.i18n['arch.uninstall.clean_cached.substatus'])
-            if os.path.isdir('/var/cache/pacman/pkg'):
-                available_files = glob.glob("/var/cache/pacman/pkg/{}-*.pkg.tar.*".format(pkg.name))
+            if arch_config['clean_cached']:  # cleaning old versions
+                watcher.change_substatus(self.i18n['arch.uninstall.clean_cached.substatus'])
+                if os.path.isdir('/var/cache/pacman/pkg'):
+                    for p in to_uninstall:
+                        available_files = glob.glob("/var/cache/pacman/pkg/{}-*.pkg.tar.*".format(p))
 
-                if available_files and not handler.handle_simple(SimpleProcess(cmd=['rm', '-rf', *available_files],
-                                                                               root_password=root_password)):
-                    watcher.show_message(title=self.i18n['error'],
-                                         body=self.i18n['arch.uninstall.clean_cached.error'].format(bold(pkg.name)),
-                                         type_=MessageType.WARNING)
+                        if available_files and not handler.handle_simple(SimpleProcess(cmd=['rm', '-rf', *available_files],
+                                                                                       root_password=root_password)):
+                            watcher.show_message(title=self.i18n['error'],
+                                                 body=self.i18n['arch.uninstall.clean_cached.error'].format(bold(p)),
+                                                 type_=MessageType.WARNING)
 
         watcher.change_progress(100)
         return uninstalled
@@ -1354,7 +1364,7 @@ class ArchManager(SoftwareManager):
                 for conflict in to_uninstall:
                     context.watcher.change_substatus(self.i18n['arch.uninstalling.conflict'].format(bold(conflict)))
 
-                    if not self._uninstall(pkg_name=conflict, root_password=context.root_password, handler=context.handler):
+                    if not self._uninstall(pkgs={conflict}, root_password=context.root_password, handler=context.handler):
                         context.watcher.show_message(title=self.i18n['error'],
                                                      body=self.i18n['arch.uninstalling.conflict.fail'].format(bold(conflict)),
                                                      type_=MessageType.ERROR)

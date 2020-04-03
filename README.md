@@ -151,7 +151,8 @@ db_updater:
 ![aur_search](https://raw.githubusercontent.com/vinifmor/bauh/staging/pictures/aur/search.gif)
 
 - Only available for **Arch-based systems**
-- Default actions: search, install, uninstall, downgrade, launch, history
+- Repository packages available actions: search, install, uninstall, launch
+- AUR packages available actions: search, install, uninstall, downgrade, launch, history
 - It handles conflicts, and missing / optional packages installations
 - Automatically makes simple package compilation improvements:
 

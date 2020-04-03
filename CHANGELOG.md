@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
         - **clean cache**: it cleans the pacman cache diretory ( default: `/var/cache/pacman/pkg` )
      - mirrors refreshing on startup ( **disabled by default**. Can be enabled on settings -> **refresh_mirrors_startup** )
      - new settings to enable / disable AUR and repository packages management: `aur` and `repositories`
+     - uninstall: allowing to remove all transitive dependencies
      - multi-threaded download ( using aria2c ) is **not supported yet**
 - Web
     - **Clean installation environment** custom action: removes all the installation environment folders ( it does not remove installed apps )

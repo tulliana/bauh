@@ -440,6 +440,19 @@ class DependenciesAnalyser:
 
         return missing_deps
 
+    def map_all_required_by(self, pkgnames: Iterable[str], to_ignore: Set[str]) -> Set[str]:
+        to_ignore.update(pkgnames)
+        all_requirements = {req for reqs in pacman.map_required_by(pkgnames).values() for req in reqs if req not in to_ignore}
+
+        if all_requirements:
+            sub_requirements = self.map_all_required_by(all_requirements, to_ignore)
+
+            if sub_requirements:
+                all_requirements.update(sub_requirements)
+                return all_requirements
+
+        return all_requirements
+
 
 def map_providers(pkgs: Iterable[str], remote_provided_map: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
     res = {}

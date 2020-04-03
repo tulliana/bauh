@@ -83,10 +83,6 @@ def get_info_dict(pkg_name: str, remote: bool = False) -> dict:
         return info_dict
 
 
-def list_installed() -> Set[str]:
-    return {out.decode().strip() for out in new_subprocess(['pacman', '-Qq']).stdout if out}
-
-
 def check_installed(pkg: str) -> bool:
     res = run_cmd('pacman -Qq ' + pkg, print_error=False)
     return bool(res)
@@ -777,3 +773,36 @@ def get_cache_dir() -> str:
                 cache_dirs.append(string.split('=')[1].strip())
 
         return cache_dirs[-1] if cache_dirs else '/var/cache/pacman/pkg/'
+
+
+def map_required_by(names: Iterable[str]) -> Dict[str, Set[str]]:
+    output = run_cmd('pacman -Qi {}'.format(' '.join(names)))
+
+    if output:
+        res = {}
+        latest_name, required = None, None
+
+        for l in output.split('\n'):
+            if l:
+                if l[0] != ' ':
+                    line = l.strip()
+                    field_sep_idx = line.index(':')
+                    field = line[0:field_sep_idx].strip()
+
+                    if field == 'Name':
+                        val = line[field_sep_idx + 1:].strip()
+                        latest_name = val
+                    elif field == 'Required By':
+                        val = line[field_sep_idx + 1:].strip()
+                        required = set()
+                        if val != 'None':
+                            required.update((d for d in val.split(' ') if d))
+
+                    elif latest_name and required is not None:
+                        res[latest_name] = required
+                        latest_name, required = None, None
+
+                elif latest_name and required is not None:
+                    required.update(required.update((d for d in l.strip().split(' ') if d)))
+
+        return res
