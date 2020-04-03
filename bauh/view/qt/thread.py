@@ -449,7 +449,7 @@ class UpgradeSelected(AsyncAction):
         self.change_substatus('')
 
         timestamp = datetime.now()
-        upgrade_id = 'upgrade_{}{}{}_{}'.format(timestamp.year, timestamp.month, timestamp.day, time.time())
+        upgrade_id = 'upgrade_{}{}{}_{}'.format(timestamp.year, timestamp.month, timestamp.day, int(time.time()))
 
         self._write_summary_log(upgrade_id, requirements)
 
