@@ -36,7 +36,7 @@ To contribute have a look at [CONTRIBUTING.md](https://github.com/vinifmor/bauh/
 
 The other requirements depend on which type of applications you want to manage ( see [Gems](https://github.com/vinifmor/bauh/tree/wgem#gems--package-technology-support-) ).
 
-### Installation
+### Distribution
 
 **AUR**
 
@@ -180,7 +180,7 @@ sync_databases: true # package databases synchronization once a day before the f
 sync_databases_startup: true  # package databases synchronization once a day during startup
 clean_cached: true  # defines if old cached versions should be removed from the disk cache during a package uninstallation
 refresh_mirrors_startup: false # if the package mirrors should be refreshed during startup
-mirrors_sort_limit: 10  # defines the maximum number of mirrors that will be used for speed sorting. Use 0 for no limit or leave it blank to disable sorting. 
+mirrors_sort_limit: 5  # defines the maximum number of mirrors that will be used for speed sorting. Use 0 for no limit or leave it blank to disable sorting. 
 aur:  true  # allows to manage AUR packages
 repositories: true  # allows to manage packages from the configured repositories
 ``` 
@@ -292,7 +292,7 @@ Priority:
 to check for new updates (`bauh-cli updates`).
 - To verify the available commands: `bauh-cli --help`. To list the command parameters: `bauh-cli [command] --help`. ( e.g: `bauh-cli updates --help`) 
 
-### How to improve the performance
+### How to improve performance
 - Disable the application types you do not want to deal with
 - If you don't care about restarting the app every time a new supported package technology is installed, enable `single_dependency_checking`. This can reduce the application response time, since it won't need to recheck if the required technologies are available on your system every time a given action is executed.
 - If you don't mind to see the applications icons, you can disable them via `download: icons: false`. The application may have a slight response improvement, since it will reduce the IO and parallelism within it.

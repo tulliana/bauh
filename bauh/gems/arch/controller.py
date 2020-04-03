@@ -1364,7 +1364,7 @@ class ArchManager(SoftwareManager):
         self._update_progress(context, 80)
 
         if not context.dependency:
-            status_handler = TransactionStatusHandler(context.watcher, self.i18n, 1, self.logger) if not context.dependency else None
+            status_handler = TransactionStatusHandler(context.watcher, self.i18n, 1, self.logger, percentage=False) if not context.dependency else None
             status_handler.start()
         else:
             status_handler = None

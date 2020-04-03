@@ -8,7 +8,7 @@ from bauh.view.util.translation import I18n
 
 class TransactionStatusHandler(Thread):
 
-    def __init__(self, watcher: ProcessWatcher, i18n: I18n, npkgs: int, logger: logging.Logger):
+    def __init__(self, watcher: ProcessWatcher, i18n: I18n, npkgs: int, logger: logging.Logger, percentage: bool = True):
         super(TransactionStatusHandler, self).__init__(daemon=True)
         self.watcher = watcher
         self.i18n = i18n
@@ -19,10 +19,14 @@ class TransactionStatusHandler(Thread):
         self.outputs = []
         self.work = True
         self.logger = logger
+        self.percentage = percentage
 
     def gen_percentage(self) -> str:
-        performed = self.downloading + self.upgrading + self.installing
-        return '({0:.2f}%)'.format((performed / (2 * self.npkgs)) * 100)
+        if self.percentage:
+            performed = self.downloading + self.upgrading + self.installing
+            return '({0:.2f}%) '.format((performed / (2 * self.npkgs)) * 100)
+        else:
+            return ''
 
     def get_performed(self) -> int:
         return self.upgrading + self.installing
@@ -34,8 +38,8 @@ class TransactionStatusHandler(Thread):
                     perc = self.gen_percentage()
                     self.downloading += 1
 
-                    self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.downloading, self.npkgs,
-                                                                            self.i18n['downloading'].capitalize(), output.split(' ')[1].strip()))
+                    self.watcher.change_substatus('{}[{}/{}] {} {}'.format(perc, self.downloading, self.npkgs,
+                                                                           self.i18n['downloading'].capitalize(), output.split(' ')[1].strip()))
             elif output.startswith('upgrading'):
                 self.downloading = self.npkgs  # to avoid wrong numbers the packages are cached
 
@@ -46,7 +50,7 @@ class TransactionStatusHandler(Thread):
                     performed = self.upgrading + self.installing
 
                     if performed <= self.npkgs:
-                        self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.upgrading, self.npkgs,
+                        self.watcher.change_substatus('{}[{}/{}] {} {}'.format(perc, self.upgrading, self.npkgs,
                                                                                 self.i18n['manage_window.status.upgrading'].capitalize(), output.split(' ')[1].strip()))
             elif output.startswith('installing'):
                 self.downloading = self.npkgs  # to avoid wrong numbers the packages are cached
@@ -58,9 +62,9 @@ class TransactionStatusHandler(Thread):
                     performed = self.upgrading + self.installing
 
                     if performed <= self.npkgs:
-                        self.watcher.change_substatus('{} [{}/{}] {} {}'.format(perc, self.installing, self.npkgs,
-                                                                                self.i18n['manage_window.status.installing'].capitalize(),
-                                                                                output.split(' ')[1].strip()))
+                        self.watcher.change_substatus('{}[{}/{}] {} {}'.format(perc, self.installing, self.npkgs,
+                                                                               self.i18n['manage_window.status.installing'].capitalize(),
+                                                                               output.split(' ')[1].strip()))
             else:
                 performed = self.get_performed()
 
