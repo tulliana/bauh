@@ -255,9 +255,13 @@ class DependenciesAnalyser:
 
         missing_deps, repo_missing, aur_missing = set(), set(), set()
 
+        deps_checked.update(pkgs_data.keys())
+
         for p, data in pkgs_data.items():
             if data['d']:
                 for dep in data['d']:
+                    if dep in pkgs_data:
+                        continue
                     if dep not in provided_map:
                         dep_split = self.re_dep_operator.split(dep)
                         dep_name = dep_split[0].strip()
