@@ -1,5 +1,6 @@
 import logging
 import time
+import traceback
 from pathlib import Path
 from typing import List, Type, Set, Tuple
 
@@ -9,6 +10,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QCheckBox, QHeaderView, QToolB
     QLabel, QPlainTextEdit, QLineEdit, QProgressBar, QPushButton, QComboBox, QApplication, QListView, QSizePolicy, \
     QMenu, QAction
 
+from bauh import LOGS_PATH
 from bauh.api.abstract.cache import MemoryCache
 from bauh.api.abstract.context import ApplicationContext
 from bauh.api.abstract.controller import SoftwareManager
@@ -17,7 +19,6 @@ from bauh.api.abstract.view import MessageType
 from bauh.api.http import HttpClient
 from bauh.commons import user
 from bauh.commons.html import bold
-from bauh.gems.web import TEMP_PATH
 from bauh.view.core.tray_client import notify_tray
 from bauh.view.qt import dialog, commons, qt_utils, root
 from bauh.view.qt.about import AboutDialog
@@ -275,7 +276,7 @@ class ManageWindow(QWidget):
         self.layout.addWidget(self.toolbar_substatus)
         self._change_label_substatus('')
 
-        self.thread_update = self._bind_async_action(UpgradeSelected(self.manager, self.i18n), finished_call=self._finish_update_selected)
+        self.thread_update = self._bind_async_action(UpgradeSelected(self.manager, self.i18n), finished_call=self._finish_upgrade_selected)
         self.thread_refresh = self._bind_async_action(RefreshApps(self.manager), finished_call=self._finish_refresh_apps, only_finished=True)
         self.thread_uninstall = self._bind_async_action(UninstallApp(self.manager, self.icon_cache, self.i18n), finished_call=self._finish_uninstall)
         self.thread_get_info = self._bind_async_action(GetAppInfo(self.manager), finished_call=self._finish_get_info)
@@ -904,8 +905,23 @@ class ManageWindow(QWidget):
             self.thread_update.pkgs = self.pkgs
             self.thread_update.start()
 
-    def _finish_update_selected(self, res: dict):
+    def _finish_upgrade_selected(self, res: dict):
         self.finish_action()
+
+        if res.get('id'):
+            output = self.textarea_output.toPlainText()
+
+            if output:
+                try:
+                    Path(UpgradeSelected.LOGS_DIR).mkdir(parents=True, exist_ok=True)
+                    logs_path = '{}/{}.log'.format(UpgradeSelected.LOGS_DIR, res['id'])
+                    with open(logs_path, 'w+') as f:
+                        f.write(output)
+
+                    self.textarea_output.appendPlainText('\n\n *Upgrade summary generated at: {}'.format(UpgradeSelected.SUMMARY_FILE.format(res['id'])))
+                    self.textarea_output.appendPlainText('\n *Upgrade logs generated at: {}'.format(logs_path))
+                except:
+                    traceback.print_exc()
 
         if res['success']:
             if self._can_notify_user():
@@ -1132,7 +1148,7 @@ class ManageWindow(QWidget):
         console_output = self.textarea_output.toPlainText()
 
         if console_output:
-            log_path = '{}/logs/install/{}/{}'.format(TEMP_PATH, res['pkg'].model.get_type(), res['pkg'].model.name)
+            log_path = '{}/install/{}/{}'.format(LOGS_PATH, res['pkg'].model.get_type(), res['pkg'].model.name)
             try:
                 Path(log_path).mkdir(parents=True, exist_ok=True)
 

@@ -1,14 +1,18 @@
 import os
 import re
 import time
+import traceback
 from datetime import datetime, timedelta
+from io import StringIO
+from pathlib import Path
 from typing import List, Type, Set, Tuple
 
 import requests
 from PyQt5.QtCore import QThread, pyqtSignal
 
+from bauh import LOGS_PATH
 from bauh.api.abstract.cache import MemoryCache
-from bauh.api.abstract.controller import SoftwareManager, UpgradeRequirement
+from bauh.api.abstract.controller import SoftwareManager, UpgradeRequirement, UpgradeRequirements
 from bauh.api.abstract.handler import ProcessWatcher
 from bauh.api.abstract.model import PackageStatus, SoftwarePackage, CustomSoftwareAction
 from bauh.api.abstract.view import MessageType, MultipleSelectComponent, InputOption, TextComponent, \
@@ -173,6 +177,9 @@ class AsyncAction(QThread, ProcessWatcher):
 
 class UpgradeSelected(AsyncAction):
 
+    LOGS_DIR = '{}/upgrade'.format(LOGS_PATH)
+    SUMMARY_FILE = LOGS_DIR + '/{}_summary.txt'
+
     def __init__(self, manager: SoftwareManager, i18n: I18n, pkgs: List[PackageView] = None):
         super(UpgradeSelected, self).__init__()
         self.pkgs = pkgs
@@ -299,6 +306,60 @@ class UpgradeSelected(AsyncAction):
                                       body=self.i18n['action.disk_trim.error'],
                                       type_=MessageType.ERROR)
 
+    def _write_summary_log(self, upgrade_id: str, requirements: UpgradeRequirements):
+        try:
+            Path(self.LOGS_DIR).mkdir(parents=True, exist_ok=True)
+
+            summary_text = StringIO('Upgrade summary ( id: {} )'.format(upgrade_id))
+
+            if requirements.cannot_upgrade:
+                summary_text.write('\nCannot upgrade:')
+
+                for dep in requirements.cannot_upgrade:
+                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(dep.pkg.get_type().capitalize(), dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
+
+                summary_text.write('\n')
+
+            if requirements.to_remove:
+                summary_text.write('\nMust be removed:')
+
+                for dep in requirements.to_remove:
+                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(dep.pkg.get_type().capitalize(), dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
+
+                summary_text.write('\n')
+
+            if requirements.to_install:
+                summary_text.write('\nMust be installed:')
+
+                for dep in requirements.to_remove:
+                    summary_text.write(
+                        '\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(dep.pkg.get_type().capitalize(),
+                                                                             dep.pkg.name,
+                                                                             dep.pkg.version if dep.pkg.version else '?',
+                                                                             dep.reason if dep.reason else '?'))
+
+                summary_text.write('\n')
+
+            if requirements.to_upgrade:
+                summary_text.write('\nWill be upgraded:')
+
+                for dep in requirements.to_remove:
+                    summary_text.write(
+                        '\n * Type:{}\tName: {}\tVersion\tNew version: {}'.format(dep.pkg.get_type().capitalize(),
+                                                                                  dep.pkg.name,
+                                                                                  dep.pkg.version if dep.pkg.version else '?',
+                                                                                  dep.pkg.latest_version if dep.pkg.latest_version else '?'))
+
+                summary_text.write('\n')
+
+            summary_text.seek(0)
+
+            with open(self.SUMMARY_FILE.format(upgrade_id), 'w+') as f:
+                f.write(summary_text.read())
+
+        except:
+            traceback.print_exc()
+
     def run(self):
         to_update, requires_root = self.filter_to_update()
         
@@ -308,7 +369,7 @@ class UpgradeSelected(AsyncAction):
             root_password, ok = self.request_root_password()
 
             if not ok:
-                self.notify_finished({'success': False, 'updated': 0, 'types': set()})
+                self.notify_finished({'success': False, 'updated': 0, 'types': set(), 'id': None})
                 self.pkgs = None
                 return
 
@@ -328,7 +389,7 @@ class UpgradeSelected(AsyncAction):
 
         if not requirements:
             self.pkgs = None
-            self.notify_finished({'success': success, 'updated': updated, 'types': updated_types})
+            self.notify_finished({'success': success, 'updated': updated, 'types': updated_types, 'id': None})
             return
 
         comps, required_size, extra_size = [], 0, 0
@@ -357,7 +418,7 @@ class UpgradeSelected(AsyncAction):
         comps.insert(1, TextComponent(''))
 
         if not self.request_confirmation(title=self.i18n['action.update.summary'].capitalize(), body='', components=comps):
-            self.notify_finished({'success': success, 'updated': updated, 'types': updated_types})
+            self.notify_finished({'success': success, 'updated': updated, 'types': updated_types, 'id': None})
             self.pkgs = None
             return
 
@@ -375,11 +436,17 @@ class UpgradeSelected(AsyncAction):
 
             if any_requires_bkp:
                 if not self.request_backup(app_config, 'upgrade', self.i18n, root_password):
-                    self.notify_finished({'success': success, 'updated': updated, 'types': updated_types})
+                    self.notify_finished({'success': success, 'updated': updated, 'types': updated_types, 'id': None})
                     self.pkgs = None
                     return
 
         self.change_substatus('')
+
+        timestamp = datetime.now()
+        upgrade_id = 'upgrade_{}{}{}_{}'.format(timestamp.year, timestamp.month, timestamp.day, time.time())
+
+        self._write_summary_log(upgrade_id, requirements)
+
         success = bool(self.manager.upgrade(requirements, root_password, self))
         self.change_substatus('')
 
@@ -395,7 +462,7 @@ class UpgradeSelected(AsyncAction):
                                                          self.i18n['action.update.success.reboot.line3'])
             self.request_reboot(msg)
 
-        self.notify_finished({'success': success, 'updated': updated, 'types': updated_types})
+        self.notify_finished({'success': success, 'updated': updated, 'types': updated_types, 'id': upgrade_id})
         self.pkgs = None
 
 

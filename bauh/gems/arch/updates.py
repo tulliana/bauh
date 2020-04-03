@@ -417,7 +417,7 @@ class UpdatesSummarizer:
             res.to_remove = [p for p in context.to_remove.values()]
 
         if context.cannot_upgrade:
-            res.cannot_upgrade = [p for p in context.cannot_upgrade.keys()]
+            res.cannot_upgrade = [d for d in context.cannot_upgrade.values()]
 
         if context.to_install:
             res.to_install = [self._map_requirement(p, context) for p in context.to_install.values()]

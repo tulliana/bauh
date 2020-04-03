@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Core
     - now the root password is asked only once ( can be disabled through the new settings property `store_root_password` )
     - new upgrade model: now all packages selected to upgrade are handled at once by the underlying gem
+    - upgrade logs are now generated at **/tmp/bauh/logs/upgrade**
 - Arch
     - dialog design when the package cannot be uninstalled due to required packages
     - dependency checking algorithm
@@ -62,6 +63,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     
 ### Fixes
 - table not displaying all updates when the "updates filter" is clicked several times
+- installation logs written to the wrong temp directory
 - Arch / AUR:
     - sorting algorithm was providing wrong results for some cases
     - not caching data about packages with no desktop entry files

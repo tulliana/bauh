@@ -47,7 +47,7 @@ class UpgradeRequirement:
 class UpgradeRequirements:
 
     def __init__(self, to_install: List[UpgradeRequirement], to_remove: List[UpgradeRequirement],
-                 to_upgrade: List[UpgradeRequirement], cannot_upgrade: List[SoftwarePackage]):
+                 to_upgrade: List[UpgradeRequirement], cannot_upgrade: List[UpgradeRequirement]):
         """
         :param to_install: additional packages that must be installed with the upgrade
         :param to_remove: non upgrading packages that should be removed due to conflicts with upgrading packages
