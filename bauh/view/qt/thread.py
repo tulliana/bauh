@@ -310,13 +310,15 @@ class UpgradeSelected(AsyncAction):
         try:
             Path(self.LOGS_DIR).mkdir(parents=True, exist_ok=True)
 
-            summary_text = StringIO('Upgrade summary ( id: {} )'.format(upgrade_id))
+            summary_text = StringIO()
+            summary_text.write('Upgrade summary ( id: {} )'.format(upgrade_id))
 
             if requirements.cannot_upgrade:
                 summary_text.write('\nCannot upgrade:')
 
                 for dep in requirements.cannot_upgrade:
-                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(dep.pkg.get_type().capitalize(), dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
+                    type_label = self.i18n.get('gem.{}.type.{}.label'.format(dep.pkg.gem_name, dep.pkg.get_type().lower()), dep.pkg.get_type().capitalize())
+                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(type_label, dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
 
                 summary_text.write('\n')
 
@@ -324,28 +326,32 @@ class UpgradeSelected(AsyncAction):
                 summary_text.write('\nMust be removed:')
 
                 for dep in requirements.to_remove:
-                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(dep.pkg.get_type().capitalize(), dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
+                    type_label = self.i18n.get('gem.{}.type.{}.label'.format(dep.pkg.gem_name, dep.pkg.get_type().lower()), dep.pkg.get_type().capitalize())
+                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(type_label, dep.pkg.name, dep.pkg.version if dep.pkg.version else '?', dep.reason if dep.reason else '?'))
 
                 summary_text.write('\n')
 
             if requirements.to_install:
                 summary_text.write('\nMust be installed:')
 
-                for dep in requirements.to_remove:
-                    summary_text.write(
-                        '\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(dep.pkg.get_type().capitalize(),
-                                                                             dep.pkg.name,
-                                                                             dep.pkg.version if dep.pkg.version else '?',
-                                                                             dep.reason if dep.reason else '?'))
+                for dep in requirements.to_install:
+                    type_label = self.i18n.get(
+                        'gem.{}.type.{}.label'.format(dep.pkg.gem_name, dep.pkg.get_type().lower()),
+                        dep.pkg.get_type().capitalize())
+                    summary_text.write('\n * Type:{}\tName: {}\tVersion\tReason: {}'.format(type_label,
+                                                                                            dep.pkg.name,
+                                                                                            dep.pkg.version if dep.pkg.version else '?',
+                                                                                            dep.reason if dep.reason else '?'))
 
                 summary_text.write('\n')
 
             if requirements.to_upgrade:
                 summary_text.write('\nWill be upgraded:')
 
-                for dep in requirements.to_remove:
+                for dep in requirements.to_upgrade:
+                    type_label = self.i18n.get('gem.{}.type.{}.label'.format(dep.pkg.gem_name, dep.pkg.get_type().lower()), dep.pkg.get_type().capitalize())
                     summary_text.write(
-                        '\n * Type:{}\tName: {}\tVersion\tNew version: {}'.format(dep.pkg.get_type().capitalize(),
+                        '\n * Type:{}\tName: {}\tVersion\tNew version: {}'.format(type_label,
                                                                                   dep.pkg.name,
                                                                                   dep.pkg.version if dep.pkg.version else '?',
                                                                                   dep.pkg.latest_version if dep.pkg.latest_version else '?'))
