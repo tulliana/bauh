@@ -4,28 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.9.0] - 2020
+## [0.9.0] - 2020-04
 ### Features
 - Backup
-    - now bauh integrates with timeshift ( if available on the system ) and can generate snapshots before installing, uninstalling, ...
+    - timeshift integration ( if available on the system ): it can generate snapshots before installing, uninstalling, upgrading ...
     - you can enable / disable this feature via the settings file or UI.
 - UI
-    - new initialization dialog showing tasks that need to be done before using bauh
+    - new initialization dialog showing tasks that need to be done before use
     - new custom actions button ( displays specific action available for each packaging provider )
 - Arch
-    - support for packages from configured repositories ( search, install, upgrade, downgrade, history, info )
-    - removing old cached versions from the disk cache when uninstalling a package ( can be disabled on settings -> **clean_cached** )
-    - database synchronization on startup ( **enabled by default**. Can be disabled on settings -> **sync_databases_startup** )
-    - mirrors refreshing on startup ( **disabled by default**. Can be enabled on settings -> **refresh_mirrors_startup** )
-    - if the pacman database is locked, a dialog is displayed requesting if the database should be unlocked to proceed with the ongoing action
-    - able to handle the installation of dependencies with multiple providers
-    - the AUR compilation optimizations now include setting the device processors to **performance** mode
+    - support for packages from configured repositories ( search, install, upgrade and info. **History and downgrade are not supported yet** )
     - custom actions ( available through the new custom actions button )
         - **synchronize packages database**: synchronizes the database against the configured mirrors
         - **refresh mirrors**: allows the user to define multiple mirrors locations, sort by the fastest and update the packages database
-        - **quick system upgrade**: it executes a default pacman upgrade ( `pacman -Syyu --noconfirm` )
+        - **quick system upgrade**: it executes a default pacman upgrade ( `pacman -Syyu` )
         - **clean cache**: it cleans the pacman cache diretory ( default: `/var/cache/pacman/pkg` )
+     - mirrors refreshing on startup ( **disabled by default**. Can be enabled on settings -> **refresh_mirrors_startup** )
      - new settings to enable / disable AUR and repository packages management: `aur` and `repositories`
+     - multi-threaded download ( using aria2c ) is **not supported yet**
 - Web
     - **Clean installation environment** custom action: removes all the installation environment folders ( it does not remove installed apps )
 - AppImage
@@ -34,28 +30,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
         - **Upgrade file**: allows to upgrade a manually installed AppImage file
 - CLI:
     - a beginning for the command line mode (`bauh-cli`). Only **list updates** command is available for now ( `bauh-cli updates` ) [#54](https://github.com/vinifmor/bauh/issues/54)
- - Core
-    - allowing to trim the disk after all upgrades are applied ( **disabled by default**. It can be enabled on settings )      
+- Core
+    - allowing to trim the disk after all upgrades are applied ( **disabled by default**. It can be enabled on settings, Make sure your SSD supports TRIM before enabling this option. )      
     
 ### Improvements
-- now the root password is asked only once ( can be disabled through the new settings property `store_root_password` )
-- new upgrade model: now all packages selected to upgrade are handled at once by the underlying gem
-- new parameters
-    - `--settings`: opens only the settings panel
-- adding mutual exclusion to some parameters (`--settings`, `--tray`, `--reset`)
+- Core
+    - now the root password is asked only once ( can be disabled through the new settings property `store_root_password` )
+    - new upgrade model: now all packages selected to upgrade are handled at once by the underlying gem
 - Arch
     - dialog design when the package cannot be uninstalled due to required packages
-    - dependency checking algorithm: 
+    - dependency checking algorithm
         - faster for scenarios involving several packages ( taking =~ 95% less time )
         - faster for AUR installations ( taking an average of 23% less time )
-    - code refactored
     - displaying missing repository dependencies sizes
+    - if the pacman database is locked, a dialog is displayed requesting if the database should be unlocked to proceed with the ongoing action
+    - the AUR compilation optimizations now include setting the device processors to **performance** mode
+    - removing old cached versions from the disk cache when uninstalling a package ( can be disabled on settings -> **clean_cached** )
+    - able to handle the installation of dependencies with multiple providers
+    - database synchronization on startup ( **enabled by default**. Can be disabled on settings -> **sync_databases_startup** )
     - overall speed improvements 
+    - code refactoring
 - UI
     - table update performance
-    - the name filter now delays 1 second before being applied
-    - time to determine the selected packages to upgrade reduced
-    - upgrades: upgrade order and required dialogs were merged in a single "summary" dialog
+    - the name filter now delays 2 seconds before being applied
+    - time to determine the selected packages to upgrade takes less time
+    - upgrades: upgrade order and required dialogs were merged in a **single summary dialog**
     - displaying the upgrade size ( Flatpak, AppImage and Arch )
     - tray
         - sorting types on update notification
@@ -79,10 +78,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Params / Environment Variables
 - param **--show-panel** dropped
 - env var **BAUH_TRAY** dropped
+- new parameter `--settings`: opens only the settings panel
+- now to open the tray is only necessary to specify the parameter `--tray` instead of `--tray=1`
+- adding mutual exclusion to some parameters (`--settings`, `--tray`, `--reset`)
 
-### i18n
-    - Russian ( ru )
-        - [mountain-biker85](https://github.com/mountain-biker85) -> PRs: [#73](https://github.com/vinifmor/bauh/pull/73) [#79](https://github.com/vinifmor/bauh/pull/79) [#80](https://github.com/vinifmor/bauh/pull/80) [#81](https://github.com/vinifmor/bauh/pull/81)
+### i18n contributions
+    - Russian (ru): [mountain-biker85](https://github.com/mountain-biker85)
 
     
 ## [0.8.5] - 2020-03-11

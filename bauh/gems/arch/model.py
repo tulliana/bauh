@@ -45,7 +45,7 @@ class ArchPackage(SoftwarePackage):
             return 'https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=' + self.package_base
 
     def has_history(self):
-        return self.installed
+        return self.installed and self.repository == 'aur'
 
     def has_info(self):
         return True
@@ -55,7 +55,7 @@ class ArchPackage(SoftwarePackage):
             return bool(self.url_download) if self.repository == 'aur' else True
 
     def can_be_downgraded(self):
-        return self.installed and self.downgrade_enabled
+        return self.installed and self.downgrade_enabled and self.repository == 'aur'
 
     def get_type(self):
         return 'aur' if self.repository == 'aur' else 'arch_repo'
