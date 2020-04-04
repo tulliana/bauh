@@ -1404,8 +1404,16 @@ class ArchManager(SoftwareManager):
 
         if installed:
             context.watcher.change_substatus(self.i18n['status.caching_data'].format(bold(context.name)))
-            disk.save_several(pkgnames={context.name},
-                              repo_map={context.name: context.repository},
+            pkgnames = {context.name}
+            repo_map = {context.name: context.repository}
+
+            if context.missing_deps:
+                for dep in context.missing_deps:
+                    pkgnames.add(dep[0])
+                    repo_map[dep[0]] = dep[1]
+
+            disk.save_several(pkgnames=pkgnames,
+                              repo_map=repo_map,
                               maintainer=context.maintainer,
                               overwrite=True,
                               categories=self.categories)
