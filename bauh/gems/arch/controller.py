@@ -61,7 +61,8 @@ class TransactionContext:
                  build_dir: str = None, project_dir: str = None, change_progress: bool = False, arch_config: dict = None,
                  install_file: str = None, repository: str = None, pkg: ArchPackage = None,
                  remote_repo_map: Dict[str, str] = None, provided_map: Dict[str, Set[str]] = None,
-                 remote_provided_map: Dict[str, Set[str]] = None, aur_idx: Set[str] = None):
+                 remote_provided_map: Dict[str, Set[str]] = None, aur_idx: Set[str] = None,
+                 missing_deps: List[Tuple[str, str]] = None):
         self.name = name
         self.base = base
         self.maintainer = maintainer
@@ -81,6 +82,7 @@ class TransactionContext:
         self.remote_repo_map = remote_repo_map
         self.remote_provided_map = remote_provided_map
         self.aur_idx = aur_idx
+        self.missing_deps = missing_deps
 
     @classmethod
     def gen_context_from(cls, pkg: ArchPackage, arch_config: dict, root_password: str, handler: ProcessHandler) -> "TransactionContext":
@@ -1181,7 +1183,8 @@ class ArchManager(SoftwareManager):
 
         return True
 
-    def _handle_missing_deps(self, context: TransactionContext) -> bool:
+    def _list_missing_deps(self, context: TransactionContext) -> List[Tuple[str, str]]:
+        context.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(context.name)))
         ti = time.time()
 
         if context.repository == 'aur':
@@ -1207,6 +1210,10 @@ class ArchManager(SoftwareManager):
 
         tf = time.time()
         self.logger.info("Took {0:.2f} seconds to check for missing dependencies".format(tf - ti))
+        return missing_deps
+
+    def _handle_missing_deps(self, context: TransactionContext) -> bool:
+        missing_deps = self._list_missing_deps(context)
 
         if missing_deps is None:
             return False  # called off by the user
@@ -1219,8 +1226,6 @@ class ArchManager(SoftwareManager):
             return True
 
     def _handle_deps_and_keys(self, context: TransactionContext) -> bool:
-        context.watcher.change_substatus(self.i18n['arch.checking.deps'].format(bold(context.name)))
-
         handled_deps = self._handle_missing_deps(context)
         if handled_deps is False:
             return False
@@ -1373,13 +1378,20 @@ class ArchManager(SoftwareManager):
         context.watcher.change_substatus(self.i18n['arch.installing.package'].format(bold(context.name)))
         self._update_progress(context, 80)
 
+        to_install = []
+
+        if context.missing_deps:
+            to_install.extend((d[0] for d in context.missing_deps))
+
+        to_install.append(pkgpath)
+
         if not context.dependency:
-            status_handler = TransactionStatusHandler(context.watcher, self.i18n, 1, self.logger, percentage=False) if not context.dependency else None
+            status_handler = TransactionStatusHandler(context.watcher, self.i18n, 1, self.logger, percentage=len(to_install) > 1) if not context.dependency else None
             status_handler.start()
         else:
             status_handler = None
 
-        installed = context.handler.handle(process=pacman.install_as_process(pkgpath=pkgpath,
+        installed = context.handler.handle(process=pacman.install_as_process(pkgpaths=to_install,
                                                                              root_password=context.root_password,
                                                                              file=context.has_install_file(),
                                                                              pkgdir=context.project_dir),
@@ -1527,11 +1539,27 @@ class ArchManager(SoftwareManager):
 
     def _install_from_repository(self, context: TransactionContext) -> bool:
         try:
-            if self._handle_missing_deps(context) is False:
-                return False
+            missing_deps = self._list_missing_deps(context)
         except PackageNotFoundException:
             self.logger.error("Package '{}' was not found")
             return False
+
+        if missing_deps is None:
+            return False  # called off by the user
+
+        if missing_deps:
+            if any((dep for dep in missing_deps if dep[1] == 'aur')):
+                context.watcher.show_message(title=self.i18n['error'].capitalize(),
+                                             body=self.i18n['arch.install.repo_pkg.error.aur_deps'],
+                                             type_=MessageType.ERROR)
+                return False
+
+            context.missing_deps = missing_deps
+            context.watcher.change_substatus(self.i18n['arch.missing_deps_found'].format(bold(context.name)))
+
+            if not confirmation.request_install_missing_deps(context.name, missing_deps, context.watcher, self.i18n):
+                context.watcher.print(self.i18n['action.cancelled'])
+                return False
 
         res = self._install(context)
 

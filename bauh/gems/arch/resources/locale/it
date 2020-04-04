@@ -143,6 +143,7 @@ arch.install.optdep.error=Impossibile installare il pacchetto opzionale {}
 arch.install.optdeps.request.body={} è stato installato con successo! Ci sono alcuni pacchetti associati opzionali che potresti voler installare
 arch.install.optdeps.request.help=Controlla quelli che vuoi
 arch.install.optdeps.request.title=Dipendenze opzionali
+arch.install.repo_pkg.error.aur_deps=It is not possible to install an AUR package as dependency of a repository package
 arch.installing.package=Installazione del pacchetto {}
 arch.makepkg.optimizing=Ottimizzando la compilazione
 arch.missing_deps.body=Le seguenti {deps} dipendenze devono essere installate prima che l'installazione di {name} continui

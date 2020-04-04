@@ -143,6 +143,7 @@ arch.install.optdep.error=Optionales Paket {} konnte nicht installiert werden
 arch.install.optdeps.request.body={} wurde erfolgreich installiert! Es gibt optionale zugehörige Pakete welche du vielleicht auch installieren möchtest
 arch.install.optdeps.request.help=Wähle entsprechende aus
 arch.install.optdeps.request.title=Optionale Abhängigkeiten
+arch.install.repo_pkg.error.aur_deps=It is not possible to install an AUR package as dependency of a repository package
 arch.installing.package=Paket {} installieren
 arch.makepkg.optimizing=Optimiert die Zusammenstellung
 arch.missing_deps.body=Die folgenden {deps} Abhängigkeiten müssten installiert sein, bevor mit der {name} Installation fortgefahren werden kann

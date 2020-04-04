@@ -143,6 +143,7 @@ arch.install.optdep.error=No s’ha pogut instal·lar el paquet opcional {}
 arch.install.optdeps.request.body={} s’ha instal·lat correctament. Hi ha paquets opcionals associats que potser voldreu instal·lar
 arch.install.optdeps.request.help=Marqueu els que voleu
 arch.install.optdeps.request.title=Dependències opcionals
+arch.install.repo_pkg.error.aur_deps=It is not possible to install an AUR package as dependency of a repository package
 arch.installing.package=S’està instal·lant el paquet {}
 arch.makepkg.optimizing=Optimitzant la recopilació
 arch.missing_deps.body=S’han d’instal·lar les {deps} dependències següents abans de continuar amb la instal·lació de {name}

@@ -143,6 +143,7 @@ arch.install.optdep.error=Не удалось установить дополн�
 arch.install.optdeps.request.body={} успешно установлен ! Есть некоторые дополнительные связанные пакеты, которые вы можете установить
 arch.install.optdeps.request.help=Отметьте те, которые вы хотите установить
 arch.install.optdeps.request.title=Необязательные зависимости
+arch.install.repo_pkg.error.aur_deps=It is not possible to install an AUR package as dependency of a repository package
 arch.installing.package=Установка пакета {}
 arch.makepkg.optimizing=Оптимизация компиляции
 arch.missing_deps.body=Необходимо установить следующие зависимости , чтобы продолжить установку {name}
