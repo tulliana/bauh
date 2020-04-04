@@ -1112,7 +1112,7 @@ class ArchManager(SoftwareManager):
 
         # building main package
         context.watcher.change_substatus(self.i18n['arch.building.package'].format(bold(context.name)))
-        optimize = bool(context.config['optimize'])
+        optimize = bool(context.config['optimize']) and cpu_manager.supports_performance_mode()
 
         cpu_optimized = False
         if optimize and not cpu_manager.all_in_performance():

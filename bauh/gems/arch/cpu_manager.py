@@ -5,6 +5,10 @@ import traceback
 from bauh.commons.system import new_root_subprocess
 
 
+def supports_performance_mode():
+    return os.path.exists('/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor')
+
+
 def all_in_performance() -> bool:
     for i in range(multiprocessing.cpu_count()):
         with open('/sys/devices/system/cpu/cpu{}/cpufreq/scaling_governor'.format(i)) as f:
