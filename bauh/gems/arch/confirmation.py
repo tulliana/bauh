@@ -74,7 +74,8 @@ def request_providers(providers_map: Dict[str, Set[str]], repo_map: Dict[str, st
     repo_icon_path = get_repo_icon_path()
     aur_icon_path = get_icon_path()
 
-    comps = []
+    form = FormComponent([], label='')
+
     for dep, providers in providers_map.items():
         opts = []
 
@@ -88,18 +89,16 @@ def request_providers(providers_map: Dict[str, Set[str]], repo_map: Dict[str, st
                                     icon_path=aur_icon_path if repo == 'aur' else repo_icon_path,
                                     tooltip='{}: {}'.format(i18n['repository'].capitalize(), repo)))
 
-        form = FormComponent([], label=dep)
-        form.components.append(SingleSelectComponent(label='',
+        form.components.append(SingleSelectComponent(label=bold(dep.lower()),
                                                      options=opts,
                                                      default_option=opts[0],
-                                                     type_=SelectViewType.RADIO,
+                                                     type_=SelectViewType.COMBO,
                                                      max_per_line=1))
-        comps.append(form)
 
     if watcher.request_confirmation(title=i18n['arch.providers'].capitalize(),
                                     body=msg,
-                                    components=comps,
+                                    components=[form],
                                     confirmation_label=i18n['proceed'].capitalize(),
                                     deny_label=i18n['cancel'].capitalize()):
 
-        return {form.components[0].get_selected() for form in comps}
+        return {s.get_selected() for s in form.components}

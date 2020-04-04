@@ -95,7 +95,8 @@ class FormComboBoxQt(QComboBox):
             self.setMaximumWidth(model.max_width)
 
         for idx, op in enumerate(self.model.options):
-            self.addItem(op.label, op.value)
+            icon = QIcon(op.icon_path) if op.icon_path else QIcon()
+            self.addItem(icon, op.label, op.value)
 
             if op.tooltip:
                 self.setItemData(idx, op.tooltip, Qt.ToolTipRole)

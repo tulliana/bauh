@@ -147,4 +147,4 @@ class WebApplication(SoftwarePackage):
                         return config_dirs[0]
 
     def supports_backup(self) -> bool:
-        return True
+        return False
