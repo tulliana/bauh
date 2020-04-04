@@ -76,7 +76,10 @@ class SettingsWindow(QWidget):
 
         if success:
             if not self.window:
-                QCoreApplication.exit(0)
+                dialog.show_message(title=self.i18n['success'].capitalize(),
+                                    body=self.i18n['settings.changed.success.warning'],
+                                    type_=MessageType.INFO)
+                QCoreApplication.exit()
             elif dialog.ask_confirmation(title=self.i18n['warning'].capitalize(),
                                          body="<p>{}</p><p>{}</p>".format(self.i18n['settings.changed.success.warning'],
                                                                           self.i18n['settings.changed.success.reboot']),

@@ -27,6 +27,8 @@ def list_updates() -> List[PackageUpdate]:
 
     if output:
         return [PackageUpdate(pkg_id=o['id'], name=o['name'], version=o['version'], pkg_type=o['type']) for o in json.loads(output)]
+    else:
+        return []
 
 
 class UpdateCheck(QThread):
@@ -42,7 +44,10 @@ class UpdateCheck(QThread):
     def _notify_updates(self):
         self.lock.acquire()
         try:
-            self.signal.emit(list_updates())
+            updates = list_updates()
+
+            if updates is not None:
+                self.signal.emit(updates)
         finally:
             self.lock.release()
 
