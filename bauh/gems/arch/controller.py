@@ -1386,7 +1386,7 @@ class ArchManager(SoftwareManager):
         to_install.append(pkgpath)
 
         if not context.dependency:
-            status_handler = TransactionStatusHandler(context.watcher, self.i18n, 1, self.logger, percentage=len(to_install) > 1) if not context.dependency else None
+            status_handler = TransactionStatusHandler(context.watcher, self.i18n, len(to_install), self.logger, percentage=len(to_install) > 1) if not context.dependency else None
             status_handler.start()
         else:
             status_handler = None
