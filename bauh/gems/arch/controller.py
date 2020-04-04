@@ -730,7 +730,7 @@ class ArchManager(SoftwareManager):
 
                 if success:
                     watcher.print("Repository packages successfully upgraded")
-                    watcher.change_substatus(self.i18n['arch,upgrade.caching_pkgs_data'])
+                    watcher.change_substatus(self.i18n['arch.upgrade.caching_pkgs_data'])
                     repo_map = pacman.map_repositories(repo_pkgs_names)
                     disk.save_several(repo_pkgs_names, repo_map=repo_map, overwrite=True, maintainer=None)
 
