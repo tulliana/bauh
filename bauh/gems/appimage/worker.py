@@ -52,7 +52,11 @@ class DatabaseUpdater(Thread):
 
         self.logger.info('Retrieving AppImage databases')
 
-        res = self.http_client.get(self.URL_DB)
+        try:
+            res = self.http_client.get(self.URL_DB, session=False)
+        except Exception as e:
+            self.logger.error("An error ocurred while downloading the AppImage database: {}".format(e.__class__.__name__))
+            res = None
 
         if res:
             Path(LOCAL_PATH).mkdir(parents=True, exist_ok=True)
