@@ -9,6 +9,5 @@ def is_available() -> bool:
         res.wait()
         return res.returncode == 0
     except:
-        return False
-    finally:
         traceback.print_exc()
+        return False
