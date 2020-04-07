@@ -113,7 +113,7 @@ class GenericSoftwareManager(SoftwareManager):
 
         res = SearchResult([], [], 0)
 
-        if internet.is_available(self.context.http_client, self.context.logger):
+        if internet.is_available():
             norm_word = word.strip().lower()
 
             url_words = RE_IS_URL.match(norm_word)
@@ -155,26 +155,15 @@ class GenericSoftwareManager(SoftwareManager):
     def can_work(self) -> bool:
         return True
 
-    def _is_internet_available(self, res: dict):
-        res['available'] = internet.is_available(self.context.http_client, self.context.logger)
-
-    def _get_internet_check(self, res: dict) -> Thread:
-        t = Thread(target=self._is_internet_available, args=(res,))
-        t.start()
-        return t
-
-    def read_installed(self, disk_loader: DiskCacheLoader = None, limit: int = -1, only_apps: bool = False, pkg_types: Set[Type[SoftwarePackage]] = None, net_check: bool = None) -> SearchResult:
+    def read_installed(self, disk_loader: DiskCacheLoader = None, limit: int = -1, only_apps: bool = False, pkg_types: Set[Type[SoftwarePackage]] = None, internet_available: bool = None) -> SearchResult:
         ti = time.time()
         self._wait_to_be_ready()
-
-        net_check = {}
-        thread_internet_check = self._get_internet_check(net_check)
 
         res = SearchResult([], None, 0)
 
         disk_loader = None
 
-        internet_available = None
+        net_available = internet.is_available()
         if not pkg_types:  # any type
             for man in self.managers:
                 if self._can_work(man):
@@ -182,12 +171,8 @@ class GenericSoftwareManager(SoftwareManager):
                         disk_loader = self.disk_loader_factory.new()
                         disk_loader.start()
 
-                    if internet_available is None:
-                        thread_internet_check.join()
-                        internet_available = net_check.get('available', True)
-
                     mti = time.time()
-                    man_res = man.read_installed(disk_loader=disk_loader, pkg_types=None, internet_available=internet_available)
+                    man_res = man.read_installed(disk_loader=disk_loader, pkg_types=None, internet_available=net_available)
                     mtf = time.time()
                     self.logger.info(man.__class__.__name__ + " took {0:.2f} seconds".format(mtf - mti))
 
@@ -204,12 +189,8 @@ class GenericSoftwareManager(SoftwareManager):
                         disk_loader = self.disk_loader_factory.new()
                         disk_loader.start()
 
-                    if internet_available is None:
-                        thread_internet_check.join()
-                        internet_available = net_check.get('available', True)
-
                     mti = time.time()
-                    man_res = man.read_installed(disk_loader=disk_loader, pkg_types=None, internet_available=internet_available)
+                    man_res = man.read_installed(disk_loader=disk_loader, pkg_types=None, internet_available=net_available)
                     mtf = time.time()
                     self.logger.info(man.__class__.__name__ + " took {0:.2f} seconds".format(mtf - mti))
 
@@ -321,29 +302,24 @@ class GenericSoftwareManager(SoftwareManager):
 
     def prepare(self, task_manager: TaskManager, root_password: str, internet_available: bool):
         if self.managers:
-            internet_on = internet.is_available(self.context.http_client, self.logger)
+            internet_on = internet.is_available()
             for man in self.managers:
                 if man not in self._already_prepared and self._can_work(man):
                     if task_manager:
                         man.prepare(task_manager, root_password, internet_on)
                     self._already_prepared.append(man)
 
-    def list_updates(self, net_check: bool = None) -> List[PackageUpdate]:
+    def list_updates(self, internet_available: bool = None) -> List[PackageUpdate]:
         self._wait_to_be_ready()
 
         updates = []
 
         if self.managers:
-            net_check = {}
-            thread_internet_check = self._get_internet_check(net_check)
+            net_available = internet.is_available()
 
             for man in self.managers:
                 if self._can_work(man):
-
-                    if thread_internet_check.is_alive():
-                        thread_internet_check.join()
-
-                    man_updates = man.list_updates(internet_available=net_check['available'])
+                    man_updates = man.list_updates(internet_available=net_available)
                     if man_updates:
                         updates.extend(man_updates)
 
@@ -353,7 +329,7 @@ class GenericSoftwareManager(SoftwareManager):
         warnings = []
 
         if self.managers:
-            int_available = internet.is_available(self.context.http_client, self.context.logger)
+            int_available = internet.is_available()
 
             for man in self.managers:
                 if man.is_enabled():
@@ -382,7 +358,7 @@ class GenericSoftwareManager(SoftwareManager):
 
     def list_suggestions(self, limit: int, filter_installed: bool) -> List[PackageSuggestion]:
         if bool(self.config['suggestions']['enabled']):
-            if self.managers and internet.is_available(self.context.http_client, self.context.logger):
+            if self.managers and internet.is_available():
                 suggestions, threads = [], []
                 for man in self.managers:
                     t = Thread(target=self._fill_suggestions, args=(suggestions, man, int(self.config['suggestions']['by_type']), filter_installed))

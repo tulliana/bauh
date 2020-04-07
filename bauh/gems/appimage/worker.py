@@ -42,7 +42,7 @@ class DatabaseUpdater(Thread):
             self.task_man.update_progress(self.task_id, 10, None)
 
         try:
-            if not internet.is_available(self.http_client, self.logger):
+            if not internet.is_available():
                 self._finish_task()
                 return
         except requests.exceptions.ConnectionError:
