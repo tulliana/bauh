@@ -455,11 +455,14 @@ class ArchManager(SoftwareManager):
             pkg.categories = self.categories.get(pkg.name)
             pkg.downgrade_enabled = True
             if updates:
+                self.logger.info("Repository updates found")
                 update_version = updates.get(pkg.name)
 
                 if update_version:
                     pkg.latest_version = update_version
                     pkg.update = True
+            else:
+                self.logger.info("No repository updates found")
 
             if disk_loader:
                 disk_loader.fill(pkg)
