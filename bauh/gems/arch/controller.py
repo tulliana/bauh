@@ -444,6 +444,9 @@ class ArchManager(SoftwareManager):
             self.logger.warning("Not mapped all signed packages repositories. Mapped: {}. Total: {}".format(len(repo_map), len(signed)))
 
         thread_updates.join()
+
+        self.logger.info("Repository updates found" if updates else "No repository updates found")
+
         for name, data in signed.items():
             pkg = ArchPackage(name=name,
                               version=data.get('version'),
@@ -454,15 +457,13 @@ class ArchManager(SoftwareManager):
                               repository=repo_map.get(name))
             pkg.categories = self.categories.get(pkg.name)
             pkg.downgrade_enabled = True
+
             if updates:
-                self.logger.info("Repository updates found")
                 update_version = updates.get(pkg.name)
 
                 if update_version:
                     pkg.latest_version = update_version
                     pkg.update = True
-            else:
-                self.logger.info("No repository updates found")
 
             if disk_loader:
                 disk_loader.fill(pkg)
