@@ -20,6 +20,11 @@ class TransactionStatusHandler(Thread):
         self.work = True
         self.logger = logger
         self.percentage = percentage
+        self.accepted = {'checking keyring',
+                         'checking package integrity',
+                         'loading package files',
+                         'checking for file conflicts',
+                         'checking available disk space'}
 
     def gen_percentage(self) -> str:
         if self.percentage:
@@ -66,13 +71,22 @@ class TransactionStatusHandler(Thread):
                                                                                self.i18n['manage_window.status.installing'].capitalize(),
                                                                                output.split(' ')[1].strip()))
             else:
-                performed = self.get_performed()
+                substatus_found = False
+                lower_output = output.lower()
+                for msg in self.accepted:
+                    if lower_output.startswith(msg):
+                        self.watcher.change_substatus(self.i18n['arch.substatus.{}'.format(msg)].capitalize())
+                        substatus_found = True
+                        break
 
-                if performed == 0 and self.downloading > 0:
-                    self.watcher.change_substatus('')
-                elif performed == self.npkgs:
-                    self.watcher.change_substatus(self.i18n['finishing'].capitalize())
-                    return False
+                if not substatus_found:
+                    performed = self.get_performed()
+
+                    if performed == 0 and self.downloading > 0:
+                        self.watcher.change_substatus('')
+                    elif performed == self.npkgs:
+                        self.watcher.change_substatus(self.i18n['finishing'].capitalize())
+                        return False
 
         return True
 

@@ -7,7 +7,7 @@ from bauh.api.http import HttpClient
 
 def is_available(client: HttpClient, logger: logging.Logger) -> bool:
     try:
-        client.exists('https://google.com')
+        client.exists('https://google.com', session=False)
         return True
     except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
         if logger:

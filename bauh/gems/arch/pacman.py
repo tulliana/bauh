@@ -806,3 +806,36 @@ def map_required_by(names: Iterable[str]) -> Dict[str, Set[str]]:
                     required.update(required.update((d for d in l.strip().split(' ') if d)))
 
         return res
+
+
+def map_conflicts_with(names: Iterable[str], remote: bool) -> Dict[str, Set[str]]:
+    output = run_cmd('pacman -{}i {}'.format('S' if remote else 'Q', ' '.join(names)))
+
+    if output:
+        res = {}
+        latest_name, conflicts = None, None
+
+        for l in output.split('\n'):
+            if l:
+                if l[0] != ' ':
+                    line = l.strip()
+                    field_sep_idx = line.index(':')
+                    field = line[0:field_sep_idx].strip()
+
+                    if field == 'Name':
+                        val = line[field_sep_idx + 1:].strip()
+                        latest_name = val
+                    elif field == 'Conflicts With':
+                        val = line[field_sep_idx + 1:].strip()
+                        conflicts = set()
+                        if val != 'None':
+                            conflicts.update((d for d in val.split(' ') if d))
+
+                    elif latest_name and conflicts is not None:
+                        res[latest_name] = conflicts
+                        latest_name, conflicts = None, None
+
+                elif latest_name and conflicts is not None:
+                    conflicts.update(conflicts.update((d for d in l.strip().split(' ') if d)))
+
+        return res

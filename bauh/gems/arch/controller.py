@@ -768,7 +768,7 @@ class ArchManager(SoftwareManager):
         watcher.change_substatus('')
         return True
 
-    def _uninstall(self, pkgs: Iterable[str], root_password: str, handler: ProcessHandler) -> bool:
+    def _uninstall_pkgs(self, pkgs: Iterable[str], root_password: str, handler: ProcessHandler) -> bool:
         res = handler.handle(SystemProcess(new_root_subprocess(['pacman', '-R', *pkgs, '--noconfirm'], root_password), wrong_error_phrase='warning:'))
 
         installed = pacman.list_installed_names()
@@ -781,20 +781,15 @@ class ArchManager(SoftwareManager):
 
         return res
 
-    def uninstall(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher) -> bool:
-        self.aur_client.clean_caches()
-        handler = ProcessHandler(watcher)
-        arch_config = read_config()
+    def _uninstall(self, context: TransactionContext):
+        self._update_progress(context, 10)
 
-        if self._is_database_locked(handler, root_password):
-            return False
+        required_by = self.deps_analyser.map_all_required_by({context.name}, set())
 
-        watcher.change_progress(10)
-        required_by = self.deps_analyser.map_all_required_by({pkg.name}, set())
-        watcher.change_progress(50)
+        self._update_progress(context, 50)
 
         to_uninstall = set()
-        to_uninstall.add(pkg.name)
+        to_uninstall.add(context.name)
 
         if required_by:
             to_uninstall.update(required_by)
@@ -802,36 +797,50 @@ class ArchManager(SoftwareManager):
             reqs = [InputOption(label=p, value=p, icon_path=get_icon_path(), read_only=True) for p in required_by]
             reqs_select = MultipleSelectComponent(options=reqs, default_options=set(reqs), label="", max_per_line=3)
 
-            msg = '<p>{}</p><p>{}</p>'.format(self.i18n['arch.uninstall.required_by'].format(bold(pkg.name), bold(str(len(reqs)))),
+            msg = '<p>{}</p><p>{}</p>'.format(self.i18n['arch.uninstall.required_by'].format(bold(context.name), bold(str(len(reqs)))),
                                               self.i18n['arch.uninstall.required_by.advice'])
 
-            if not watcher.request_confirmation(title=self.i18n['action.not_allowed'].capitalize(),
-                                                body=msg,
-                                                components=[reqs_select],
-                                                confirmation_label=self.i18n['proceed'].capitalize(),
-                                                deny_label=self.i18n['cancel'].capitalize()):
-                watcher.print("Aborted")
+            if not context.watcher.request_confirmation(title=self.i18n['action.not_allowed'].capitalize(),
+                                                        body=msg,
+                                                        components=[reqs_select],
+                                                        confirmation_label=self.i18n['proceed'].capitalize(),
+                                                        deny_label=self.i18n['cancel'].capitalize()):
+                context.watcher.print("Aborted")
                 return False
 
-        uninstalled = self._uninstall(to_uninstall, root_password, handler)
+        uninstalled = self._uninstall_pkgs(to_uninstall, context.root_password, context.handler)
 
         if uninstalled:
-            watcher.change_progress(70)
+            self._update_progress(context, 70)
 
-            if arch_config['clean_cached']:  # cleaning old versions
-                watcher.change_substatus(self.i18n['arch.uninstall.clean_cached.substatus'])
+            if bool(context.config['clean_cached']):  # cleaning old versions
+                context.watcher.change_substatus(self.i18n['arch.uninstall.clean_cached.substatus'])
                 if os.path.isdir('/var/cache/pacman/pkg'):
                     for p in to_uninstall:
                         available_files = glob.glob("/var/cache/pacman/pkg/{}-*.pkg.tar.*".format(p))
 
-                        if available_files and not handler.handle_simple(SimpleProcess(cmd=['rm', '-rf', *available_files],
-                                                                                       root_password=root_password)):
-                            watcher.show_message(title=self.i18n['error'],
-                                                 body=self.i18n['arch.uninstall.clean_cached.error'].format(bold(p)),
-                                                 type_=MessageType.WARNING)
+                        if available_files and not context.handler.handle_simple(SimpleProcess(cmd=['rm', '-rf', *available_files],
+                                                                                 root_password=context.root_password)):
+                            context.watcher.show_message(title=self.i18n['error'],
+                                                         body=self.i18n['arch.uninstall.clean_cached.error'].format(bold(p)),
+                                                         type_=MessageType.WARNING)
 
-        watcher.change_progress(100)
+        self._update_progress(context, 100)
         return uninstalled
+
+    def uninstall(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher) -> bool:
+        self.aur_client.clean_caches()
+        handler = ProcessHandler(watcher)
+
+        if self._is_database_locked(handler, root_password):
+            return False
+
+        return self._uninstall(TransactionContext(name=pkg.name,
+                                                  change_progress=True,
+                                                  arch_config=read_config(),
+                                                  watcher=watcher,
+                                                  root_password=root_password,
+                                                  handler=handler))
 
     def get_managed_types(self) -> Set["type"]:
         return {ArchPackage}
@@ -1031,7 +1040,27 @@ class ArchManager(SoftwareManager):
         else:
             return self._get_history_repo_pkg(pkg)
 
-    def _install_deps(self, context: TransactionContext, deps: List[Tuple[str, str]]) -> str:
+    def _request_conflict_resolution(self, pkg: str, conflicting_pkg: str, context: TransactionContext) -> bool:
+        conflict_msg = '{} {} {}'.format(bold(pkg), self.i18n['and'], bold(conflicting_pkg))
+        if not context.watcher.request_confirmation(title=self.i18n['arch.install.conflict.popup.title'],
+                                                    body=self.i18n['arch.install.conflict.popup.body'].format(conflict_msg)):
+            context.watcher.print(self.i18n['action.cancelled'])
+            return False
+        else:
+            context.watcher.change_substatus(self.i18n['arch.uninstalling.conflict'].format(bold(conflicting_pkg)))
+            conflict_context = context.clone_base()
+            conflict_context.change_progress = False
+            conflict_context.name = conflicting_pkg
+
+            if not self._uninstall(conflict_context):
+                context.watcher.show_message(title=self.i18n['error'],
+                                             body=self.i18n['arch.uninstalling.conflict.fail'].format(bold(conflicting_pkg)),
+                                             type_=MessageType.ERROR)
+                return False
+
+            return True
+
+    def _install_deps(self, context: TransactionContext, deps: List[Tuple[str, str]]) -> Iterable[str]:
         """
         :param pkgs_repos:
         :param root_password:
@@ -1042,23 +1071,56 @@ class ArchManager(SoftwareManager):
         progress = 0
         self._update_progress(context, 1)
 
+        repo_deps, aur_deps_context = [], []
+
         for dep in deps:
             context.watcher.change_substatus(self.i18n['arch.install.dependency.install'].format(bold('{} ({})'.format(dep[0], dep[1]))))
-            dep_context = context.gen_dep_context(dep[0], dep[1])
 
-            if dep_context.repository == 'aur':
+            if dep[1] == 'aur':
+                dep_context = context.gen_dep_context(dep[0], dep[1])
                 dep_src = self.aur_client.get_src_info(dep[0])
                 dep_context.base = dep_src['pkgbase']
-                installed = self._install_from_aur(dep_context)
+                aur_deps_context.append(dep_context)
             else:
-                dep_context.maintainer = dep[1]
-                installed = self._install(dep_context)
+                repo_deps.append(dep[0])
+
+        if repo_deps:
+            context.watcher.change_substatus(self.i18n['arch.checking.conflicts'].format(bold(context.name)))
+
+            all_provided = context.get_provided_map()
+
+            for dep, conflicts in pacman.map_conflicts_with(repo_deps, remote=True).items():
+                if conflicts:
+                    for c in conflicts:
+                        source_conflict = all_provided.get(c)
+
+                        if source_conflict:
+                            conflict_pkg = [*source_conflict][0]
+
+                            if dep != conflict_pkg:
+                                if not self._request_conflict_resolution(dep, conflict_pkg , context):
+                                    return {dep}
+
+            status_handler = TransactionStatusHandler(context.watcher, self.i18n, len(repo_deps), self.logger, percentage=len(repo_deps) > 1)
+            status_handler.start()
+            installed = context.handler.handle(pacman.install_as_process(pkgpaths=repo_deps,
+                                                                         root_password=context.root_password,
+                                                                         file=False), output_handler=status_handler.handle)
+
+            if installed:
+                progress += len(repo_deps) * progress_increment
+                self._update_progress(context, progress)
+            else:
+                return repo_deps
+
+        for aur_context in aur_deps_context:
+            installed = self._install_from_aur(aur_context)
 
             if not installed:
-                return dep[0]
-
-            progress += progress_increment
-            self._update_progress(context, progress)
+                return {aur_context.name}
+            else:
+                progress += progress_increment
+                self._update_progress(context, progress)
 
         self._update_progress(context, 100)
 
@@ -1109,15 +1171,15 @@ class ArchManager(SoftwareManager):
         self._pre_download_source(context.project_dir, context.watcher)
         self._update_progress(context, 50)
 
-        if not self._handle_deps_and_keys(context):
+        if not self._handle_aur_package_deps_and_keys(context):
             return False
 
         # building main package
         context.watcher.change_substatus(self.i18n['arch.building.package'].format(bold(context.name)))
-        optimize = bool(context.config['optimize']) and cpu_manager.supports_performance_mode()
+        optimize = bool(context.config['optimize']) and cpu_manager.supports_performance_mode() and not cpu_manager.all_in_performance()
 
         cpu_optimized = False
-        if optimize and not cpu_manager.all_in_performance():
+        if optimize:
             self.logger.info("Setting cpus to performance mode")
             cpu_manager.set_mode('performance', context.root_password)
             cpu_optimized = True
@@ -1174,11 +1236,11 @@ class ArchManager(SoftwareManager):
 
         old_progress_behavior = context.change_progress
         context.change_progress = False
-        dep_not_installed = self._install_deps(context, missing_deps)
+        deps_not_installed = self._install_deps(context, missing_deps)
         context.change_progress = old_progress_behavior
 
-        if dep_not_installed:
-            message.show_dep_not_installed(context.watcher, context.name, dep_not_installed, self.i18n)
+        if deps_not_installed:
+            message.show_deps_not_installed(context.watcher, context.name, deps_not_installed, self.i18n)
             return False
 
         return True
@@ -1219,22 +1281,16 @@ class ArchManager(SoftwareManager):
             return False  # called off by the user
 
         if not missing_deps:
-            return
+            return True
         elif not self._ask_and_install_missing_deps(context=context, missing_deps=missing_deps):
             return False  # called off by the user or something went wrong
         else:
             return True
 
-    def _handle_deps_and_keys(self, context: TransactionContext) -> bool:
+    def _handle_aur_package_deps_and_keys(self, context: TransactionContext) -> bool:
         handled_deps = self._handle_missing_deps(context)
-        if handled_deps is False:
+        if not handled_deps:
             return False
-        elif handled_deps is True:
-            # it is necessary to re-check because missing PGP keys are only notified when there are no missing deps
-            return self._handle_deps_and_keys(context)
-        else:
-            # no missing deps
-            pass
 
         check_res = makepkg.check(context.project_dir,
                                   optimize=bool(context.config['optimize']),
@@ -1246,9 +1302,12 @@ class ArchManager(SoftwareManager):
                 if context.watcher.request_confirmation(title=self.i18n['arch.aur.install.unknown_key.title'],
                                                         body=self.i18n['arch.install.aur.unknown_key.body'].format(bold(context.name), bold(check_res['gpg_key']))):
                     context.watcher.change_substatus(self.i18n['arch.aur.install.unknown_key.status'].format(bold(check_res['gpg_key'])))
+                    self.logger.info("Importing GPG key {}".format(check_res['gpg_key']))
                     if not context.handler.handle(gpg.receive_key(check_res['gpg_key'])):
-                        context.watcher.show_message(title=self.i18n['error'],
+                        self.logger.error("An error occurred while importing the GPG key {}".format(check_res['gpg_key']))
+                        context.watcher.show_message(title=self.i18n['error'].capitalize(),
                                                      body=self.i18n['arch.aur.install.unknown_key.receive_error'].format(bold(check_res['gpg_key'])))
+
                         return False
                 else:
                     context.watcher.print(self.i18n['action.cancelled'])
@@ -1334,12 +1393,11 @@ class ArchManager(SoftwareManager):
 
                 old_progress_behavior = context.change_progress
                 context.change_progress = True
-                dep_not_installed = self._install_deps(context, sorted_deps)
+                deps_not_installed = self._install_deps(context, sorted_deps)
                 context.change_progress = old_progress_behavior
 
-                if dep_not_installed:
-                    message.show_optdep_not_installed(dep_not_installed, context.watcher, self.i18n)
-                    return False
+                if deps_not_installed:
+                    message.show_optdeps_not_installed(deps_not_installed, context.watcher, self.i18n)
 
         return True
 
@@ -1348,14 +1406,17 @@ class ArchManager(SoftwareManager):
         pkgpath = context.get_package_path()
 
         context.watcher.change_substatus(self.i18n['arch.checking.conflicts'].format(bold(context.name)))
+        self.logger.info("Checking for possible conflicts with '{}'".format(context.name))
 
-        for check_out in SimpleProcess(cmd=['pacman', '-U' if pkgpath else '-S', pkgpath],
+        for check_out in SimpleProcess(cmd=['pacman', '-U' if context.install_file else '-S', pkgpath],
                                        root_password=context.root_password,
                                        cwd=context.project_dir or '.').instance.stdout:
             check_install_output.append(check_out.decode())
 
         self._update_progress(context, 70)
+
         if check_install_output and 'conflict' in check_install_output[-1]:
+            self.logger.info("Conflicts detected for '{}'".format(context.name))
             conflicting_apps = [w[0] for w in re.findall(r'((\w|\-|\.)+)\s(and|are)', check_install_output[-1])]
             conflict_msg = ' {} '.format(self.i18n['and']).join([bold(c) for c in conflicting_apps])
             if not context.watcher.request_confirmation(title=self.i18n['arch.install.conflict.popup.title'],
@@ -1366,14 +1427,17 @@ class ArchManager(SoftwareManager):
                 self._update_progress(context, 75)
                 to_uninstall = [conflict for conflict in conflicting_apps if conflict != context.name]
 
+                self.logger.info("Preparing to uninstall conflicting packages: {}".format(to_uninstall))
                 for conflict in to_uninstall:
                     context.watcher.change_substatus(self.i18n['arch.uninstalling.conflict'].format(bold(conflict)))
 
-                    if not self._uninstall(pkgs={conflict}, root_password=context.root_password, handler=context.handler):
+                    if not self._uninstall_pkgs(pkgs={conflict}, root_password=context.root_password, handler=context.handler):
                         context.watcher.show_message(title=self.i18n['error'],
                                                      body=self.i18n['arch.uninstalling.conflict.fail'].format(bold(conflict)),
                                                      type_=MessageType.ERROR)
                         return False
+        else:
+            self.logger.info("No conflict detected for '{}'".format(context.name))
 
         context.watcher.change_substatus(self.i18n['arch.installing.package'].format(bold(context.name)))
         self._update_progress(context, 80)

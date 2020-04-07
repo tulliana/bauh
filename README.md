@@ -238,9 +238,9 @@ environment:
 #### Environment variables / parameters
 You can change some application settings via environment variables or arguments (type ```bauh --help``` to get more information).
 - `--tray`: if bauh should be attached to the system tray.
-- `--settings`: it displays only the settings window
-- `--reset`: it cleans all configurations and cached data stored in the HOME directory
-- `BAUH_LOGS (--logs )`: its enables **bauh** logs (for debugging purposes). Use: `0` (disable, default) or `1` (enable)
+- `--settings`: it displays only the settings window.
+- `--reset`: it cleans all configurations and cached data stored in the HOME directory.
+- `--logs`: its enables **bauh** logs (for debugging purposes).
 
 #### General configuration file ( **~/.config/bauh/config.yml** )
 ```

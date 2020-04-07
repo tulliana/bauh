@@ -50,6 +50,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - removing old cached versions from the disk cache when uninstalling a package ( can be disabled on settings -> **clean_cached** )
     - able to handle the installation of dependencies with multiple providers
     - database synchronization on startup ( **enabled by default**. Can be disabled on settings -> **sync_databases_startup** )
+    - single pacman call to install repository dependencies
+    - improved conflict checking algorithm
     - overall speed improvements 
     - code refactoring
 - UI
@@ -80,9 +82,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     
 ### Params / Environment Variables
 - param **--show-panel** dropped
-- env var **BAUH_TRAY** dropped
+- env vars **BAUH_TRAY** and **BAUH_LOGS** dropped ( the equivalent parameters remain )
 - new parameter `--settings`: opens only the settings panel
-- now to open the tray is only necessary to specify the parameter `--tray` instead of `--tray=1`
+- now to open the tray use only the parameter `--tray` instead of `--tray=1`
+- now to activate the logs use only the parameter `--logs` instead of `--logs=1`
 - adding mutual exclusion to some parameters (`--settings`, `--tray`, `--reset`)
 
 ### i18n contributions
