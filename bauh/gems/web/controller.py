@@ -442,7 +442,7 @@ class WebApplicationManager(SoftwareManager):
         inp_desc = TextInputComponent(label=self.i18n['description'], value=app.description)
 
         cat_ops = [InputOption(label=self.i18n['web.install.option.category.none'].capitalize(), value=0)]
-        cat_ops.extend([InputOption(label=self.i18n['category.{}'.format(c.lower())].capitalize(), value=c) for c in self.context.default_categories])
+        cat_ops.extend([InputOption(label=self.i18n.get('category.{}'.format(c.lower()), c).capitalize(), value=c) for c in self.context.default_categories])
 
         def_cat = cat_ops[0]
 
