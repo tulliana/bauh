@@ -131,7 +131,7 @@ class AppImageManager(SoftwareManager):
         pkg.local_file_path = file_chooser.file_path
         pkg.version = input_version.get_value()
 
-        reqs = UpgradeRequirements(to_install=None, to_remove=None, to_upgrade=[pkg], cannot_upgrade=None)
+        reqs = UpgradeRequirements(to_install=None, to_remove=None, to_upgrade=[UpgradeRequirement(pkg=pkg)], cannot_upgrade=None)
         return self.upgrade(reqs, root_password=root_password, watcher=watcher)
 
     def _get_db_connection(self, db_path: str) -> sqlite3.Connection:
