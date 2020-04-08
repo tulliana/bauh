@@ -80,6 +80,7 @@ action.update.success.reboot.line2=Some changes may require a system restart to 
 action.update.success.reboot.line3=Restart now ?
 action.update.summary=Сводка обновления
 action.update.total_size=Upgrade size
+action.trim_disk.ask=Optimize disc (trim) ?
 address=Адрес
 all_files=Все файлы
 amount=amount

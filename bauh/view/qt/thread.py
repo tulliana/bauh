@@ -284,27 +284,25 @@ class UpgradeSelected(AsyncAction):
         return FormComponent(label=lb, components=comps), (required_size, extra_size)
 
     def _trim_disk(self, root_password: str):
-        if read_config()['disk']['trim_after_update']:
+        if self.request_confirmation(title=self.i18n['confirmation'].capitalize(),
+                                     body=self.i18n['action.trim_disk.ask']):
 
-            if self.request_confirmation(title=self.i18n['confirmation'].capitalize(),
-                                         body=self.i18n['action.trim_disk.ask']):
+            pwd = root_password
 
-                pwd = root_password
-
-                if not pwd and user.is_root():
-                    pwd, success = self.request_root_password()
-
-                    if not success:
-                        return
-
-                self.change_substatus(self.i18n['action.disk_trim'].capitalize())
-
-                success, output = ProcessHandler(self).handle_simple(SimpleProcess(['fstrim', '/', '-v'], root_password=pwd))
+            if not pwd and user.is_root():
+                pwd, success = self.request_root_password()
 
                 if not success:
-                    self.show_message(title=self.i18n['success'].capitalize(),
-                                      body=self.i18n['action.disk_trim.error'],
-                                      type_=MessageType.ERROR)
+                    return
+
+            self.change_substatus(self.i18n['action.disk_trim'].capitalize())
+
+            success, output = ProcessHandler(self).handle_simple(SimpleProcess(['fstrim', '/', '-v'], root_password=pwd))
+
+            if not success:
+                self.show_message(title=self.i18n['success'].capitalize(),
+                                  body=self.i18n['action.disk_trim.error'],
+                                  type_=MessageType.ERROR)
 
     def _write_summary_log(self, upgrade_id: str, requirements: UpgradeRequirements):
         try:
@@ -460,8 +458,8 @@ class UpgradeSelected(AsyncAction):
             updated = len(requirements.to_upgrade)
             updated_types.update((req.pkg.__class__ for req in requirements.to_upgrade))
 
-            if app_config['disk']['trim_after_update']:
-                self.change_substatus(self.i18n['action.disk_trim'].capitalize())
+            if bool(app_config['disk']['trim_after_update']):
+                self._trim_disk(root_password)
 
             msg = '<p>{}</p>{}</p><br/><p>{}</p>'.format(self.i18n['action.update.success.reboot.line1'],
                                                          self.i18n['action.update.success.reboot.line2'],

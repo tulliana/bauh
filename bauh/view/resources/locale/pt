@@ -80,6 +80,7 @@ action.update.success.reboot.line2=Algumas alterações podem exigir a reinicial
 action.update.success.reboot.line3=Reiniciar agora ?
 action.update.summary=Resumo de atualização
 action.update.total_size=Tamanho da atualização
+action.trim_disk.ask=Otimizar disco (trim) ?
 address=endereço
 all_files=todos os arquivos
 amount=quantidade
