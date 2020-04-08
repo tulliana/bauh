@@ -32,7 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - CLI:
     - a beginning for the command line mode (`bauh-cli`). Only **list updates** command is available for now ( `bauh-cli updates` ) [#54](https://github.com/vinifmor/bauh/issues/54)
 - Core
-    - allowing to trim the disk after all upgrades are applied ( **disabled by default**. It can be enabled on settings, Make sure your SSD supports TRIM before enabling this option. )      
+    - allowing to trim the disk after all upgrades are applied ( **disabled by default**. It can be enabled on settings, Make sure your SSD supports TRIM before enabling this option. )
+    - new warning dialog informing when there is a new bauh version available      
     
 ### Improvements
 - Core
