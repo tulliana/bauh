@@ -1988,19 +1988,19 @@ class ArchManager(SoftwareManager):
 
         success, output = handler.handle_simple(pacman.upgrade_system(root_password))
 
-        if success:
+        if not success or 'error:' in output:
+            watcher.show_message(title=self.i18n['arch.custom_action.upgrade_system'],
+                                 body="An error occurred during the upgrade process. Check out the {}".format(
+                                     bold('Details')),
+                                 type_=MessageType.ERROR)
+            return False
+        else:
             database.register_sync(self.logger)
             msg = '<p>{}</p><br/>{}</p><p>{}</p>'.format(self.i18n['action.update.success.reboot.line1'],
                                                          self.i18n['action.update.success.reboot.line2'],
                                                          self.i18n['action.update.success.reboot.line3'])
             watcher.request_reboot(msg)
             return True
-        else:
-            watcher.show_message(title=self.i18n['arch.custom_action.upgrade_system'],
-                                 body="An error occurred during the upgrade process. Check out the {}".format(bold('Details')),
-                                 type_=MessageType.ERROR)
-
-        return False
 
     def clean_cache(self, root_password: str, watcher: ProcessWatcher) -> bool:
 
