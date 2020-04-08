@@ -99,6 +99,7 @@ arch.info.conflicts with=conflictes amb
 arch.info.depends=depèn
 arch.info.depends on=depén de
 arch.info.description=descripció
+arch.info.download size=Download size
 arch.info.install date=data d'instal·lació
 arch.info.install reason=instal·lar raó
 arch.info.install reason.explicitly installed=instal·lat de forma explícita
