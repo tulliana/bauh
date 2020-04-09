@@ -1,6 +1,7 @@
+import hashlib
 import logging
 import time
-from threading import Thread
+from threading import Thread, Lock
 from typing import Dict, Set, List, Tuple, Iterable
 
 from bauh.api.abstract.controller import UpgradeRequirements, UpgradeRequirement
@@ -423,3 +424,91 @@ class UpdatesSummarizer:
             res.to_install = [self._map_requirement(p, context) for p in context.to_install.values()]
 
         return res
+
+
+class UpdatesSummarizerManager:
+
+    def __init__(self, logger: logging.Logger, i18n: I18n, cache_requirements: Dict[bytes, UpgradeRequirements],
+                 deps_analyser: DependenciesAnalyser, aur_client: AURClient, working_threads: Dict[bytes, Thread]):
+        self.logger = logger
+        self.i18n = i18n
+        self.cache_requirements = cache_requirements
+        self.working_threads = working_threads
+        self.deps_analyser = deps_analyser
+        self.aur_client = aur_client
+        self.cache_lock = Lock()
+
+    def _gen_requirements_id(self, pkgs: List[ArchPackage]):
+        pkgs.sort(key=lambda p: p.name)
+
+        sha256 = hashlib.sha256()
+
+        for p in pkgs:
+            sha256.update(p.name.encode())
+
+            if p.latest_version:
+                sha256.update(':'.encode())
+                sha256.update(p.latest_version.encode())
+
+            sha256.update('#'.encode())
+
+        return sha256.digest()
+
+    def _cache_requirements(self, pkgs: List[ArchPackage], watcher: ProcessWatcher, root_password: str, arch_config: dict):
+        reqs_id = self._gen_requirements_id(pkgs)
+
+        summarizer = UpdatesSummarizer(self.aur_client, self.i18n, self.logger, self.deps_analyser, watcher)
+
+        reqs = summarizer.summarize(pkgs, root_password, arch_config)
+
+        if reqs:
+            self.cache_lock.acquire()
+            self.cache_requirements[reqs_id] = reqs
+            self.cache_lock.release()
+
+    def cache_requirements_async(self, pkgs: List[ArchPackage], watcher: ProcessWatcher, root_password: str, arch_config: dict):
+        # TODO stopped here
+        t = Thread(target=self._cache_requirements, args=(pkgs, watcher, root_password, arch_config), daemon=True)
+        t.start()
+
+    def get_requirements(self, pkgs: List[ArchPackage], watcher: ProcessWatcher, root_password: str, arch_config: dict) -> UpgradeRequirements:
+        self.logger.info("Retrieving requirements")
+        reqs_id = self._gen_requirements_id(pkgs)
+
+        self.cache_lock.acquire()
+        cached_reqs = self.cache_requirements.get(reqs_id)
+        self.cache_lock.release()
+
+        if cached_reqs:
+            self.logger.info("Cached requirements found")
+            return cached_reqs
+
+        reqs_thread = self.working_threads.get(reqs_id)
+
+        if reqs_thread:
+            self.logger.info("Waiting for requirements thread to finish")
+            wti = time.time()
+            reqs_thread.join()
+            wtf = time.time()
+            self.logger.info("Requirements thread finished after waiting for {0:.2f} seconds".format(wtf - wti))
+
+            cached_reqs = cached_reqs.get(reqs_id)
+
+            if cached_reqs:
+                return cached_reqs
+            else:
+                self.logger.warning("No requirements found on cache after thread finished")
+
+        summarizer = UpdatesSummarizer(self.aur_client, self.i18n, self.logger, self.deps_analyser, watcher)
+
+        reqs = summarizer.summarize(pkgs, root_password, arch_config)
+
+        if reqs:
+            self.cache_requirements[reqs_id] = reqs
+
+        return reqs
+
+    def clean_caches(self):
+        self.cache_lock.acquire()
+        self.cache_requirements.clear()
+        self.cache_lock.release()

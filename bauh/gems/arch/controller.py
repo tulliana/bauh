@@ -1873,7 +1873,7 @@ class ArchManager(SoftwareManager):
         self.aur_client.clean_caches()
         arch_config = read_config()
         self._sync_databases(arch_config=arch_config, root_password=root_password, handler=ProcessHandler(watcher), change_substatus=False)
-        self.aur_client.clean_caches()
+
         try:
             return UpdatesSummarizer(self.aur_client, self.i18n, self.logger, self.deps_analyser, watcher).summarize(pkgs, root_password, arch_config)
         except PackageNotFoundException:
