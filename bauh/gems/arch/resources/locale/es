@@ -160,6 +160,7 @@ arch.substatus.disk_space=Verificando espacio disponible en disco
 arch.substatus.integrity=Verificando la integridad de los paquetes
 arch.substatus.keyring=Verificando keyring
 arch.substatus.loading_files=Cargando archivos de los paquetes
+arch.substatus.post_hooks=Ejecutando ganchos post-transacción
 arch.substatus.pre_hooks=Ejecutando ganchos pre-transacción
 arch.sync_databases.substatus=Sincronizando bases de paquetes
 arch.sync_databases.substatus.error=No fue posible sincronizar la base de paquetes

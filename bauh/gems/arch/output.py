@@ -25,7 +25,8 @@ class TransactionStatusHandler(Thread):
                          'loading package files': 'loading_files',
                          'checking for file conflicts': 'conflicts',
                          'checking available disk space': 'disk_space',
-                         ':: Running pre-transaction hooks': 'pre_hooks'}
+                         ':: Running pre-transaction hooks': 'pre_hooks',
+                         ':: Running post-transaction hooks': 'post_hooks'}
 
     def gen_percentage(self) -> str:
         if self.percentage:
@@ -82,8 +83,12 @@ class TransactionStatusHandler(Thread):
                     if performed == 0 and self.downloading > 0:
                         self.watcher.change_substatus('')
                     elif performed == self.npkgs:
-                        self.watcher.change_substatus(self.i18n['finishing'].capitalize())
-                        return False
+                        if lower_output.startswith('('):
+                            clean_output = output.strip().replace('\n', '')
+                            self.watcher.change_substatus('{}: {}'.format(self.i18n['arch.substatus.post_hooks'].capitalize(), clean_output))
+                        else:
+                            self.watcher.change_substatus(self.i18n['finishing'].capitalize())
+                            return False
 
         return True
 

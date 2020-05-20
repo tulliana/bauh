@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Arch
     - faster caching data process during initialization
     - i18n
+    - displaying post-transaction hooks substatus during the upgrade process
+
 - AppImage
     - Categories are now translated on the Info window
     
