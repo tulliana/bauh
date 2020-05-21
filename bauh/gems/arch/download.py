@@ -4,6 +4,8 @@ import os
 import traceback
 from typing import List, Iterable, Dict
 
+import requests
+
 from bauh.api.abstract.download import FileDownloader
 from bauh.api.abstract.handler import ProcessWatcher
 from bauh.api.abstract.view import MessageType
@@ -51,7 +53,12 @@ class MultiThreadedDownloader:
                     url = '{}{}{}'.format(mirror, url_base, ext)
                     output_path = base_output_path + ext
 
-                    if self.http_client.exists(url, timeout=2):
+                    try:
+                        exists =  self.http_client.exists(url, timeout=2)
+                    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                        exists = False
+
+                    if exists:
                         watcher.print("Downloading '{}' from mirror '{}'".format(pkgname, mirror))
                         pkg_downloaded = self.downloader.download(file_url=url, watcher=watcher, output_path=output_path,
                                                                   cwd='.', root_password=root_password, display_file_size=False,
