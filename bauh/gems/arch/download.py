@@ -51,7 +51,7 @@ class MultiThreadedDownloader:
                     url = '{}{}{}'.format(mirror, url_base, ext)
                     output_path = base_output_path + ext
 
-                    if self.http_client.exists(url, timeout=1):
+                    if self.http_client.exists(url, timeout=2):
                         watcher.print("Downloading '{}' from mirror '{}'".format(pkgname, mirror))
                         pkg_downloaded = self.downloader.download(file_url=url, watcher=watcher, output_path=output_path,
                                                                   cwd='.', root_password=root_password, display_file_size=False,
