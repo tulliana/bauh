@@ -1,3 +1,4 @@
+import glob
 import logging
 import os
 import re
@@ -13,9 +14,8 @@ from bauh.api.abstract.handler import TaskManager
 from bauh.commons.html import bold
 from bauh.commons.system import run_cmd, new_root_subprocess, ProcessHandler
 from bauh.gems.arch import pacman, disk, CUSTOM_MAKEPKG_FILE, CONFIG_DIR, BUILD_DIR, \
-    AUR_INDEX_FILE, get_icon_path, database, mirrors
+    AUR_INDEX_FILE, get_icon_path, database, mirrors, ARCH_CACHE_PATH
 from bauh.gems.arch.aur import URL_INDEX
-from bauh.gems.arch.model import ArchPackage
 from bauh.view.util.translation import I18n
 
 URL_INFO = 'https://aur.archlinux.org/rpc/?v=5&type=info&arg={}'
@@ -60,7 +60,7 @@ class AURIndexUpdater(Thread):
 
 class ArchDiskCacheUpdater(Thread):
 
-    def __init__(self, task_man: TaskManager, arch_config: dict, i18n: I18n, logger: logging.Logger):
+    def __init__(self, task_man: TaskManager, arch_config: dict, i18n: I18n, logger: logging.Logger, controller: "ArchManager", internet_available: bool):
         super(ArchDiskCacheUpdater, self).__init__(daemon=True)
         self.logger = logger
         self.task_man = task_man
@@ -74,6 +74,10 @@ class ArchDiskCacheUpdater(Thread):
         self.progress = 0  # progress is defined by the number of packages prepared and indexed
         self.repositories = arch_config['repositories']
         self.aur = bool(arch_config['aur'])
+        self.controller = controller
+        self.internet_available = internet_available
+        self.installed_hash_path = '{}/installed.sha1'.format(ARCH_CACHE_PATH)
+        self.installed_cache_dir = '{}/installed'.format(ARCH_CACHE_PATH)
 
     def update_prepared(self, pkgname: str, add: bool = True):
         if add:
@@ -96,31 +100,49 @@ class ArchDiskCacheUpdater(Thread):
         ti = time.time()
         self.task_man.register_task(self.task_id, self.i18n['arch.task.disk_cache'], get_icon_path())
 
+        self.task_man.update_progress(self.task_id, 1, '')
+
+        self.logger.info("Checking already cached package data")
+
+        cache_dirs = [fpath for fpath in glob.glob('{}/*'.format(self.installed_cache_dir)) if os.path.isdir(fpath)]
+
+        not_cached_names = None
+
+        if cache_dirs:  # if there are cache data
+            installed_names = pacman.list_installed_names()
+            cached_pkgs = {cache_dir.split('/')[-1] for cache_dir in cache_dirs}
+
+            not_cached_names = installed_names.difference(cached_pkgs)
+            if not not_cached_names:
+                self.task_man.update_progress(self.task_id, 100, '')
+                self.task_man.finish_task(self.task_id)
+                tf = time.time()
+                time_msg = '{0:.2f} seconds'.format(tf - ti)
+                self.logger.info('Finished: no package data to cache ({})'.format(time_msg))
+                return
+
         self.logger.info('Pre-caching installed Arch packages data to disk')
-        repo_map = pacman.map_repositories()
-        installed = pacman.map_installed(repositories=self.repositories, aur=self.aur, repo_map=repo_map)
+
+        installed = self.controller.read_installed(disk_loader=None, internet_available=self.internet_available,
+                                                   only_apps=False, pkg_types=None, limit=-1, names=not_cached_names).installed
 
         self.task_man.update_progress(self.task_id, 0, self.i18n['arch.task.disk_cache.reading'])
-        for k in ('signed', 'not_signed'):
-            installed[k] = {p for p in installed[k] if not os.path.exists(ArchPackage.disk_cache_path(p))}
 
         saved = 0
-        pkgs = {*installed['signed'], *installed['not_signed']}
-
-        if installed['not_signed']:
-            repo_map.update({p: 'aur' for p in installed['not_signed']})
+        pkgs = {p.name: p for p in installed if ((self.aur and p.repository == 'aur') or (self.repositories and p.repository != 'aur')) and not os.path.exists(p.get_disk_cache_path())}
 
         self.to_index = len(pkgs)
         self.progress = self.to_index * 2
         self.update_prepared(None, add=False)
 
-        saved += disk.save_several(pkgs, repo_map, when_prepared=self.update_prepared, after_written=self.update_indexed)
+        # overwrite == True because the verification already happened
+        saved += disk.save_several(pkgs, when_prepared=self.update_prepared, after_written=self.update_indexed, overwrite=True)
         self.task_man.update_progress(self.task_id, 100, None)
         self.task_man.finish_task(self.task_id)
 
         tf = time.time()
-        time_msg = 'Took {0:.2f} seconds'.format(tf - ti)
-        self.logger.info('Pre-cached data of {} Arch packages to the disk. {}'.format(saved, time_msg))
+        time_msg = '{0:.2f} seconds'.format(tf - ti)
+        self.logger.info('Finished: pre-cached data of {} Arch packages to the disk ({})'.format(saved, time_msg))
 
 
 class ArchCompilationOptimizer(Thread):

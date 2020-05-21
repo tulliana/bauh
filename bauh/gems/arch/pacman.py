@@ -55,7 +55,7 @@ def is_available_in_repositories(pkg_name: str) -> bool:
 
 
 def get_info(pkg_name, remote: bool = False) -> str:
-    return run_cmd('pacman -{}i {}'.format('Q' if not remote else 'S', pkg_name))
+    return run_cmd('pacman -{}i {}'.format('Q' if not remote else 'S', pkg_name), print_error=False)
 
 
 def get_info_list(pkg_name: str, remote: bool = False) -> List[tuple]:
@@ -94,12 +94,12 @@ def _fill_ignored(res: dict):
     res['pkgs'] = list_ignored_packages()
 
 
-def map_installed(repo_map: Dict[str, str], repositories: bool = True, aur: bool = True) -> dict:  # returns a dict with with package names as keys and versions as values
+def map_installed(names: Iterable[str] = None) -> dict:  # returns a dict with with package names as keys and versions as values
     ignored = {}
     thread_ignored = Thread(target=_fill_ignored, args=(ignored,), daemon=True)
     thread_ignored.start()
 
-    allinfo = run_cmd('pacman -Qi')
+    allinfo = run_cmd('pacman -Qi{}'.format(' ' + ' '.join(names) if names else ''))
 
     pkgs = {'signed': {}, 'not_signed': {}}
     current_pkg = {}
@@ -111,20 +111,14 @@ def map_installed(repo_map: Dict[str, str], repositories: bool = True, aur: bool
         elif field_tuple[0].startswith('D'):
             current_pkg['description'] = field_tuple[1].strip()
         elif field_tuple[0].startswith('Va'):
-            if field_tuple[1].strip().lower() == 'none' and aur:
+            if field_tuple[1].strip().lower() == 'none':
                 pkgs['not_signed'][current_pkg['name']] = current_pkg
                 del current_pkg['name']
-            elif repositories:
+            else:
                 pkgs['signed'][current_pkg['name']] = current_pkg
                 del current_pkg['name']
 
             current_pkg = {}
-
-    if pkgs['not_signed']:
-        for name in {*pkgs['not_signed'].keys()}:
-            if repo_map.get(name):
-                pkgs['signed'][name] = pkgs['not_signed'][name]
-                del pkgs['not_signed'][name]
 
     if pkgs['signed'] or pkgs['not_signed']:
         thread_ignored.join()
@@ -440,7 +434,7 @@ def get_build_date(pkgname: str) -> str:
 
 
 def search(words: str) -> Dict[str, dict]:
-    output = run_cmd('pacman -Ss ' + words)
+    output = run_cmd('pacman -Ss ' + words, print_error=False)
 
     if output:
         found, current = {}, {}
@@ -725,10 +719,6 @@ def map_updates_data(pkgs: Iterable[str], files: bool = False) -> dict:
                         data[latest_field].update((w.strip() for w in l.split(' ') if w))
 
         return res
-
-
-def list_installed_names() -> Set[str]:
-    return {p for p in run_cmd('pacman -Qq').split('\n') if p}
 
 
 def upgrade_several(pkgnames: Iterable[str], root_password: str, overwrite_conflicting_files: bool = False) -> SimpleProcess:
@@ -1059,6 +1049,11 @@ def list_unnecessary_deps(pkgs: Iterable[str], all_provided: Dict[str, Set[str]]
     return unnecessary.difference(pkgs)
 
 
+def list_installed_names() -> Set[str]:
+    output = run_cmd('pacman -Qq', print_error=False)
+    return {name.strip() for name in output.split('\n') if name} if output else set()
+
+
 def list_available_mirrors() -> List[str]:
     _, output = system.run(['pacman-mirrors', '--status', '--no-color'])
 
@@ -1073,3 +1068,4 @@ def list_available_mirrors() -> List[str]:
 def get_mirrors_branch() -> str:
     _, output = system.run(['pacman-mirrors', '-G'])
     return output.strip()
+

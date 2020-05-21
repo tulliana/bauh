@@ -34,7 +34,8 @@ from bauh.view.qt.settings import SettingsWindow
 from bauh.view.qt.thread import UpgradeSelected, RefreshApps, UninstallApp, DowngradeApp, GetAppInfo, \
     GetAppHistory, SearchPackages, InstallPackage, AnimateProgress, NotifyPackagesReady, FindSuggestions, \
     ListWarnings, \
-    AsyncAction, LaunchApp, ApplyFilters, CustomSoftwareAction, GetScreenshots, CustomAction, NotifyInstalledLoaded
+    AsyncAction, LaunchApp, ApplyFilters, CustomSoftwareAction, GetScreenshots, CustomAction, NotifyInstalledLoaded, \
+    IgnorePackageUpdates
 from bauh.view.qt.view_model import PackageView, PackageViewStatus
 from bauh.view.util import util, resource
 from bauh.view.util.translation import I18n
@@ -56,8 +57,6 @@ def toolbar_button_style(bg: str = None, color: str = None):
 
 
 class ManageWindow(QWidget):
-    __BASE_HEIGHT__ = 400
-
     signal_user_res = pyqtSignal(bool)
     signal_root_password = pyqtSignal(str, bool)
     signal_table_update = pyqtSignal()
@@ -80,7 +79,6 @@ class ManageWindow(QWidget):
         self.http_client = http_client
 
         self.icon_app = icon
-        self.resize(ManageWindow.__BASE_HEIGHT__, ManageWindow.__BASE_HEIGHT__)
         self.setWindowIcon(self.icon_app)
 
         self.layout = QVBoxLayout()
@@ -322,6 +320,9 @@ class ManageWindow(QWidget):
         self.thread_notify_pkgs_ready.signal_changed.connect(self._update_package_data)
         self.thread_notify_pkgs_ready.signal_finished.connect(self._update_state_when_pkgs_ready)
 
+        self.thread_ignore_updates = IgnorePackageUpdates(manager=self.manager)
+        self._bind_async_action(self.thread_ignore_updates, finished_call=self.finish_ignore_updates)
+
         self.toolbar_bottom = QToolBar()
         self.toolbar_bottom.setIconSize(QSize(16, 16))
         self.toolbar_bottom.setStyleSheet('QToolBar { spacing: 3px }')
@@ -372,7 +373,8 @@ class ManageWindow(QWidget):
         self.types_changed = False
 
         self.dialog_about = None
-        self.first_refresh = bool(config['suggestions']['enabled'])
+        self.load_suggestions = bool(config['suggestions']['enabled'])
+        self.first_refresh = True
 
         self.thread_warnings = ListWarnings(man=manager, i18n=i18n)
         self.thread_warnings.signal_warnings.connect(self._show_warnings)
@@ -381,6 +383,8 @@ class ManageWindow(QWidget):
 
         self.thread_load_installed = NotifyInstalledLoaded()
         self.thread_load_installed.signal_loaded.connect(self._finish_loading_installed)
+        self.setMinimumHeight(int(screen_size.height() * 0.5))
+        self.setMinimumWidth(int(screen_size.width() * 0.6))
 
     def update_custom_actions(self):
         self.custom_actions = self.manager.get_custom_actions()
@@ -491,6 +495,8 @@ class ManageWindow(QWidget):
         if not self.thread_warnings.isFinished():
             self.thread_warnings.start()
 
+        qt_utils.centralize(self)
+
     def verify_warnings(self):
         self.thread_warnings.start()
 
@@ -538,7 +544,7 @@ class ManageWindow(QWidget):
         if not self.recent_installation:
             self._reload_categories()
 
-        self.resize_and_center()
+        self._resize()
 
     def _update_package_data(self, idx: int):
         if self.table_apps.isEnabled():
@@ -560,8 +566,7 @@ class ManageWindow(QWidget):
     def changeEvent(self, e: QEvent):
         if isinstance(e, QWindowStateChangeEvent):
             self._maximized = self.isMaximized()
-            policy = QHeaderView.Stretch if self._maximized else QHeaderView.ResizeToContents
-            self.table_apps.change_headers_policy(policy)
+            self.table_apps.change_headers_policy(maximized=self._maximized)
 
     def _handle_console(self, checked: bool):
 
@@ -610,7 +615,7 @@ class ManageWindow(QWidget):
         self.ref_checkbox_only_apps.setVisible(bool(res['installed']))
         self.ref_bt_upgrade.setVisible(True)
         self.update_pkgs(res['installed'], as_installed=as_installed, types=res['types'], keep_filters=self.recent_uninstall and res['types'])
-        self.first_refresh = False
+        self.load_suggestions = False
         self.recent_uninstall = False
         self.types_changed = False
         self._hide_fields_after_recent_installation()
@@ -692,7 +697,7 @@ class ManageWindow(QWidget):
         if not self._maximized:
             self.table_apps.change_headers_policy(QHeaderView.Stretch)
             self.table_apps.change_headers_policy()
-            self.resize_and_center(accept_lower_width=len(self.pkgs) > 0)
+            self._resize(accept_lower_width=len(self.pkgs) > 0)
             self.label_displayed.setText('{} / {}'.format(len(self.pkgs), len(self.pkgs_available)))
         else:
             self.label_displayed.setText('')
@@ -705,7 +710,7 @@ class ManageWindow(QWidget):
 
         if not pkgs_info or pkgs_info['not_installed'] == 0:
             for app_v in (pkgs_info['pkgs_displayed'] if pkgs_info else self.pkgs):
-                if app_v.update_checked:
+                if not app_v.model.is_update_ignored() and app_v.update_checked:
                     show_bt_upgrade = True
                     break
 
@@ -780,7 +785,7 @@ class ManageWindow(QWidget):
                 commons.apply_filters(pkgv, filters, pkgs_info)
 
         if pkgs_info['apps_count'] == 0:
-            if self.first_refresh or self.types_changed:
+            if self.load_suggestions or self.types_changed:
                 self._begin_search('')
                 self.thread_suggestions.filter_installed = False
                 self.thread_suggestions.start()
@@ -819,7 +824,11 @@ class ManageWindow(QWidget):
         if self.pkgs_installed:
             self.ref_bt_installed.setVisible(not as_installed and not self.recent_installation)
 
-        self.resize_and_center(accept_lower_width=self.pkgs_installed)
+        self._resize(accept_lower_width=self.pkgs_installed)
+
+        if self.first_refresh:
+            qt_utils.centralize(self)
+            self.first_refresh = False
 
     def _apply_filters(self, pkgs_info: dict, ignore_updates: bool):
         pkgs_info['pkgs_displayed'] = []
@@ -897,7 +906,7 @@ class ManageWindow(QWidget):
             else:
                 self.ref_combo_categories.setVisible(False)
 
-    def resize_and_center(self, accept_lower_width: bool = True):
+    def _resize(self, accept_lower_width: bool = True):
         table_width = self.table_apps.get_width()
         toolbar_width = self.toolbar.sizeHint().width()
         topbar_width = self.toolbar_top.sizeHint().width()
@@ -907,8 +916,6 @@ class ManageWindow(QWidget):
 
         if (self.pkgs and accept_lower_width) or new_width > self.width():
             self.resize(new_width, self.height())
-
-        qt_utils.centralize(self)
 
     def set_progress_controll(self, enabled: bool):
         self.progress_controll_enabled = enumerate
@@ -1226,7 +1233,8 @@ class ManageWindow(QWidget):
     def _finish_custom_action(self, res: dict):
         self.finish_action()
         if res['success']:
-            self.refresh_packages(pkg_types={res['pkg'].model.__class__} if res['pkg'] else None)
+            if res['action'].refresh:
+                self.refresh_packages(pkg_types={res['pkg'].model.__class__} if res['pkg'] else None)
         else:
             self.checkbox_console.setChecked(True)
 
@@ -1256,3 +1264,24 @@ class ManageWindow(QWidget):
             menu_row.adjustSize()
             menu_row.popup(QCursor.pos())
             menu_row.exec_()
+
+    def ignore_updates(self, pkg: PackageView):
+        status_key = 'ignore_updates' if not pkg.model.is_update_ignored() else 'ignore_updates_reverse'
+        self._begin_action(self.i18n['manage_window.status.{}'.format(status_key)].format(pkg.model.name))
+        self.thread_ignore_updates.pkg = pkg
+        self.thread_ignore_updates.start()
+
+    def finish_ignore_updates(self, res: dict):
+        self.finish_action()
+
+        if res['success']:
+            self.apply_filters_async()
+
+            dialog.show_message(title=self.i18n['success'].capitalize(),
+                                body=self.i18n['action.{}.success'.format(res['action'])].format(bold(res['pkg'].model.name)),
+                                type_=MessageType.INFO)
+        else:
+            dialog.show_message(title=self.i18n['fail'].capitalize(),
+                                body=self.i18n['action.{}.fail'.format(res['action'])].format(bold(res['pkg'].model.name)),
+                                type_=MessageType.ERROR)
+

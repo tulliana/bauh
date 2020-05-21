@@ -312,7 +312,7 @@ class SoftwareManager(ABC):
         """
         pass
 
-    def clear_data(self):
+    def clear_data(self, logs: bool = True):
         """
         Removes all data created by the SoftwareManager instance
         """
@@ -339,4 +339,10 @@ class SoftwareManager(ABC):
         pass
 
     def fill_sizes(self, pkgs: List[SoftwarePackage]):
+        pass
+
+    def ignore_update(self, pkg: SoftwarePackage):
+        pass
+
+    def revert_ignored_update(self, pkg: SoftwarePackage):
         pass
