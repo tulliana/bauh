@@ -54,7 +54,7 @@ class MultiThreadedDownloader:
                     output_path = base_output_path + ext
 
                     try:
-                        exists =  self.http_client.exists(url, timeout=2)
+                        exists = self.http_client.exists(url, timeout=2)
                     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                         exists = False
 
