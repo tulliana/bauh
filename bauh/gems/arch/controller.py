@@ -35,7 +35,7 @@ from bauh.gems.arch import BUILD_DIR, aur, pacman, makepkg, message, confirmatio
 from bauh.gems.arch.aur import AURClient
 from bauh.gems.arch.config import read_config
 from bauh.gems.arch.dependencies import DependenciesAnalyser
-from bauh.gems.arch.download import MultiThreadedDownloader, MultithreadedDownloadService, ArchDownloadException
+from bauh.gems.arch.download import MultithreadedDownloadService, ArchDownloadException
 from bauh.gems.arch.exceptions import PackageNotFoundException
 from bauh.gems.arch.mapper import ArchDataMapper
 from bauh.gems.arch.model import ArchPackage
@@ -748,13 +748,23 @@ class ArchManager(SoftwareManager):
 
         return files
 
-    def _upgrade_repo_pkgs(self, pkgs: List[str], handler: ProcessHandler, root_password: str, overwrite_files: bool = False,
-                           status_handler: TransactionStatusHandler = None) -> bool:
+    def _upgrade_repo_pkgs(self, pkgs: List[str], handler: ProcessHandler, root_password: str, arch_config: dict, overwrite_files: bool = False,
+                           status_handler: TransactionStatusHandler = None, already_downloaded: bool = False) -> bool:
+
+        downloaded = 0
+
+        if not already_downloaded:
+            if self._should_download_packages(arch_config):
+                try:
+                    downloaded = self._download_packages(pkgs, handler, root_password)
+                except ArchDownloadException:
+                    return False
+
         try:
             if status_handler:
                 output_handler = status_handler
             else:
-                output_handler = TransactionStatusHandler(handler.watcher, self.i18n, len(pkgs), self.logger)
+                output_handler = TransactionStatusHandler(handler.watcher, self.i18n, len(pkgs), self.logger, downloading=downloaded)
                 output_handler.start()
 
             success, upgrade_output = handler.handle_simple(pacman.upgrade_several(pkgnames=pkgs,
@@ -792,7 +802,9 @@ class ArchManager(SoftwareManager):
                                                    handler=handler,
                                                    root_password=root_password,
                                                    overwrite_files=True,
-                                                   status_handler=output_handler)
+                                                   status_handler=output_handler,
+                                                   already_downloaded=True,
+                                                   arch_config=arch_config)
                 else:
                     output_handler.stop_working()
                     output_handler.join()
@@ -853,11 +865,11 @@ class ArchManager(SoftwareManager):
             self.logger.info("Upgrading {} repository packages: {}".format(len(repo_pkgs_names),
                                                                            ', '.join(repo_pkgs_names)))
 
-            if not self._upgrade_repo_pkgs(pkgs=repo_pkgs_names, handler=handler, root_password=root_password):
+            if not self._upgrade_repo_pkgs(pkgs=repo_pkgs_names, handler=handler, root_password=root_password, arch_config=arch_config):
                 return False
 
-        watcher.change_status('{}...'.format(self.i18n['arch.upgrade.upgrade_aur_pkgs']))
         if aur_pkgs:
+            watcher.change_status('{}...'.format(self.i18n['arch.upgrade.upgrade_aur_pkgs']))
             for pkg in aur_pkgs:
                 watcher.change_substatus("{} {} ({})...".format(self.i18n['manage_window.status.upgrading'], pkg.name, pkg.version))
                 context = TransactionContext.gen_context_from(pkg=pkg, arch_config=arch_config,
@@ -1598,6 +1610,19 @@ class ArchManager(SoftwareManager):
 
         return True
 
+    def _should_download_packages(self, arch_config: dict) -> bool:
+        return bool(arch_config['repositories_mthread_download']) and self.context.file_downloader.is_multithreaded()
+
+    def _download_packages(self, pkgnames: List[str], handler: ProcessHandler, root_password: str) -> int:
+        download_service = MultithreadedDownloadService(file_downloader=self.context.file_downloader,
+                                                        http_client=self.http_client,
+                                                        logger=self.context.logger,
+                                                        i18n=self.i18n)
+        self.logger.info("Initializing multi-threaded download for {} package(s)".format(len(pkgnames)))
+        return download_service.download_packages(pkgs=pkgnames,
+                                                  handler=handler,
+                                                  root_password=root_password)
+
     def _install(self, context: TransactionContext) -> bool:
         check_install_output = []
         pkgpath = context.get_package_path()
@@ -1647,19 +1672,12 @@ class ArchManager(SoftwareManager):
         to_install.append(pkgpath)
 
         downloaded = 0
-        if bool(context.config['repositories_mthread_download']) and self.context.file_downloader.is_multithreaded():
-            download_service = MultithreadedDownloadService(file_downloader=self.context.file_downloader,
-                                                            http_client=self.http_client,
-                                                            logger=self.context.logger,
-                                                            i18n=self.i18n)
-            to_download = [p for p in to_install if not p.startswith('/')]  # only names, no files
+        if self._should_download_packages(context.config):
+            to_download = [p for p in to_install if not p.startswith('/')]
 
             if to_download:
-                self.logger.info("Initializing multi-threaded download for {} package(s)".format(len(to_download)))
                 try:
-                    downloaded = download_service.download_packages(pkgs=to_download,
-                                                                    handler=context.handler,
-                                                                    root_password=context.root_password)
+                    downloaded = self._download_packages(to_download, context.handler, context.root_password)
                 except ArchDownloadException:
                     return False
 
