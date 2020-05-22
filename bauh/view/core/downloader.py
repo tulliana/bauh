@@ -67,12 +67,13 @@ class AdaptableFileDownloader(FileDownloader):
 
         return SimpleProcess(cmd=cmd, cwd=cwd, root_password=root_password)
 
-    def _rm_bad_file(self, file_name: str, output_path: str, cwd):
+    def _rm_bad_file(self, file_name: str, output_path: str, cwd, handler: ProcessHandler, root_password: str):
         to_delete = output_path if output_path else '{}/{}'.format(cwd, file_name)
 
         if to_delete and os.path.exists(to_delete):
             self.logger.info('Removing downloaded file {}'.format(to_delete))
-            os.remove(to_delete)
+            success, _ = handler.handle_simple(SimpleProcess(['rm', '-rf',to_delete], root_password=root_password))
+            return success
 
     def download(self, file_url: str, watcher: ProcessWatcher, output_path: str = None, cwd: str = None, root_password: str = None, substatus_prefix: str = None, display_file_size: bool = True) -> bool:
         self.logger.info('Downloading {}'.format(file_url))
@@ -121,14 +122,14 @@ class AdaptableFileDownloader(FileDownloader):
                 success = handler.handle(process)
         except:
             traceback.print_exc()
-            self._rm_bad_file(file_name, output_path, final_cwd)
+            self._rm_bad_file(file_name, output_path, final_cwd, handler, root_password)
 
         tf = time.time()
         self.logger.info(file_name + ' download took {0:.2f} minutes'.format((tf - ti) / 60))
 
         if not success:
             self.logger.error("Could not download '{}'".format(file_name))
-            self._rm_bad_file(file_name, output_path, final_cwd)
+            self._rm_bad_file(file_name, output_path, final_cwd, handler, root_password)
 
         return success
 

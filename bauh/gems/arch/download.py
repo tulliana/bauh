@@ -53,37 +53,28 @@ class MultiThreadedDownloader:
                     url = '{}{}{}'.format(mirror, url_base, ext)
                     output_path = base_output_path + ext
 
-                    try:
-                        exists = self.http_client.exists(url, timeout=2)
-                    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                        exists = False
+                    watcher.print("Downloading '{}' from mirror '{}'".format(pkgname, mirror))
+                    pkg_downloaded = self.downloader.download(file_url=url, watcher=watcher, output_path=output_path,
+                                                              cwd='.', root_password=root_password, display_file_size=True,
+                                                              substatus_prefix=substatus_prefix)
+                    if not pkg_downloaded:
+                        watcher.print("Could not download '{}' from mirror '{}'".format(pkgname, mirror))
+                        break
+                    else:
+                        self.logger.info("Package '{}' successfully downloaded".format(pkg['n']))
+                        self.logger.info("Downloading package '{}' signature".format(pkg['n']))
 
-                    if exists:
-                        watcher.print("Downloading '{}' from mirror '{}'".format(pkgname, mirror))
-                        pkg_downloaded = self.downloader.download(file_url=url, watcher=watcher, output_path=output_path,
-                                                                  cwd='.', root_password=root_password, display_file_size=False,
+                        sig_downloaded = self.downloader.download(file_url=url + '.sig', watcher=watcher,
+                                                                  output_path=output_path + '.sig',
+                                                                  cwd='.', root_password=root_password,
+                                                                  display_file_size=False,
                                                                   substatus_prefix=substatus_prefix)
-                        if not pkg_downloaded:
-                            watcher.print("Could not download '{}' from mirror '{}'".format(pkgname, mirror))
-                            self.logger.warning("Package '{}' download failed".format(pkg['n']))
-                            break
+
+                        if not sig_downloaded:
+                            self.logger.warning("Could not download package '{}' signature".format(pkg['n']))
                         else:
-                            self.logger.info("Package '{}' successfully downloaded".format(pkg['n']))
-                            self.logger.info("Downloading package '{}' signature".format(pkg['n']))
-
-                            sig_downloaded = self.downloader.download(file_url=url + '.sig', watcher=watcher,
-                                                                      output_path=output_path + '.sig',
-                                                                      cwd='.', root_password=root_password,
-                                                                      display_file_size=False,
-                                                                      substatus_prefix=substatus_prefix)
-
-                            if not sig_downloaded:
-                                self.logger.warning("Could not download package '{}' signature".format(pkg['n']))
-                            else:
-                                self.logger.info("Package '{}' signature successfully downloaded".format(pkg['n']))
-
+                            self.logger.info("Package '{}' signature successfully downloaded".format(pkg['n']))
                             return True
-
         return False
 
 
