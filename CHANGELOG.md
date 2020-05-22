@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     </p>
     
 - Arch
-	- supporting repository packages multi-threaded download (it is not enabled by default, but can be enabled through the settings window)
+	- supporting multi-threaded download for repository packages (not enabled by default)
 
 
 ### Improvements
