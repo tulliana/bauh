@@ -3,6 +3,7 @@ import os
 import re
 import time
 import traceback
+from threading import Thread
 
 from bauh.api.abstract.download import FileDownloader
 from bauh.api.abstract.handler import ProcessWatcher
@@ -75,6 +76,15 @@ class AdaptableFileDownloader(FileDownloader):
             success, _ = handler.handle_simple(SimpleProcess(['rm', '-rf',to_delete], root_password=root_password))
             return success
 
+    def _display_file_size(self, file_url: str, base_substatus, watcher: ProcessWatcher):
+        try:
+            size = self.http_client.get_content_length(file_url)
+
+            if size:
+                watcher.change_substatus(base_substatus + ' ( {} )'.format(size))
+        except:
+            pass
+
     def download(self, file_url: str, watcher: ProcessWatcher, output_path: str = None, cwd: str = None, root_password: str = None, substatus_prefix: str = None, display_file_size: bool = True) -> bool:
         self.logger.info('Downloading {}'.format(file_url))
         handler = ProcessHandler(watcher)
@@ -99,8 +109,6 @@ class AdaptableFileDownloader(FileDownloader):
                 process = self._get_wget_process(file_url, output_path, final_cwd, root_password)
                 downloader = 'wget'
 
-            file_size = self.http_client.get_content_length(file_url) if display_file_size else None
-
             name = file_url.split('/')[-1]
 
             if output_path and not RE_HAS_EXTENSION.match(name) and RE_HAS_EXTENSION.match(output_path):
@@ -111,10 +119,13 @@ class AdaptableFileDownloader(FileDownloader):
             else:
                 msg = ''
 
-            msg += bold('[{}] ').format(downloader) + self.i18n['downloading'] + ' ' + bold(name) + (' ( {} )'.format(file_size) if file_size else '')
+            msg += bold('[{}] ').format(downloader) + self.i18n['downloading'] + ' ' + bold(name)
 
             if watcher:
                 watcher.change_substatus(msg)
+
+                if display_file_size:
+                    Thread(target=self._display_file_size, args=(file_url, msg, watcher)).start()
 
             if isinstance(process, SimpleProcess):
                 success = handler.handle_simple(process)

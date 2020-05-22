@@ -1,10 +1,9 @@
 import glob
 import logging
 import os
+import time
 import traceback
 from typing import List, Iterable, Dict
-
-import requests
 
 from bauh.api.abstract.download import FileDownloader
 from bauh.api.abstract.handler import ProcessWatcher
@@ -87,6 +86,7 @@ class MultithreadedDownloadService:
         self.i18n = i18n
 
     def download_packages(self, pkgs: List[str], handler: ProcessHandler, root_password: str) -> int:
+        ti = time.time()
         watcher = handler.watcher
         mirrors = pacman.list_available_mirrors()
 
@@ -142,5 +142,6 @@ class MultithreadedDownloadService:
                                      body=self.i18n['arch.mthread_downloaded.error.cancelled'],
                                      type_=MessageType.ERROR)
                 raise ArchDownloadException()
-
+        tf = time.time()
+        self.logger.info("Download time: {0:.2f} seconds".format(tf - ti))
         return downloaded
