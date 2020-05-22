@@ -606,7 +606,7 @@ def list_download_data(pkgs: Iterable[str]) -> List[Dict[str, str]]:
 
     if output:
         res = []
-        data = {'a': None, 'v': None, 'r': None, 'n': None}
+        data = {'a': None, 'v': None, 'r': None, 'n': None, 'f': None}
 
         for l in output.split('\n'):
             if l:
@@ -625,8 +625,9 @@ def list_download_data(pkgs: Iterable[str]) -> List[Dict[str, str]]:
                     elif field == 'Architecture':
                         data['a'] = val
                     elif data.get('a'):
+                        data['f'] = '{}-{}{}.pkg'.format(data['n'], data['v'], ('-{}'.format(data['a']) if data['a'] else ''))
                         res.append(data)
-                        data = {'a': None, 'v': None, 'r': None, 'n': None}
+                        data = {'a': None, 'v': None, 'r': None, 'n': None, 'f': None}
 
         return res
 
