@@ -39,6 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - defining a minimum width and height based on the screen size
     - info window now has a height limit, a lower bar with Back and Close buttons, and is scrollable
     - minor changes
+- Downloads
+    - retrieving the downloading file sizes asynchronously
 
 ### Fixes
 - Flatpak

@@ -1276,7 +1276,7 @@ class ArchManager(SoftwareManager):
 
             return True
 
-    def _install_deps(self, context: TransactionContext, deps: List[Tuple[str, str]]) -> Iterable[str]:
+    def  _install_deps(self, context: TransactionContext, deps: List[Tuple[str, str]]) -> Iterable[str]:
         """
         :param pkgs_repos:
         :param root_password:
@@ -1318,7 +1318,15 @@ class ArchManager(SoftwareManager):
                                 if not self._request_conflict_resolution(dep, conflict_pkg , context):
                                     return {dep}
 
-            status_handler = TransactionStatusHandler(context.watcher, self.i18n, len(repo_dep_names), self.logger, percentage=len(repo_deps) > 1)
+            downloaded = 0
+            if self._should_download_packages(context.config):
+                try:
+                    downloaded = self._download_packages(repo_dep_names, context.handler, context.root_password)
+                except ArchDownloadException:
+                    return False
+
+            status_handler = TransactionStatusHandler(watcher=context.watcher, i18n=self.i18n, npkgs=len(repo_dep_names),
+                                                      logger=self.logger, percentage=len(repo_deps) > 1, downloading=downloaded)
             status_handler.start()
             installed, _ = context.handler.handle_simple(pacman.install_as_process(pkgpaths=repo_dep_names,
                                                                                    root_password=context.root_password,
@@ -1661,7 +1669,6 @@ class ArchManager(SoftwareManager):
         else:
             self.logger.info("No conflict detected for '{}'".format(context.name))
 
-        context.watcher.change_substatus(self.i18n['arch.installing.package'].format(bold(context.name)))
         self._update_progress(context, 80)
 
         to_install = []
@@ -1689,6 +1696,7 @@ class ArchManager(SoftwareManager):
         else:
             status_handler = None
 
+        context.watcher.change_substatus(self.i18n['arch.installing.package'].format(bold(context.name)))
         installed, _ = context.handler.handle_simple(pacman.install_as_process(pkgpaths=to_install,
                                                                                root_password=context.root_password,
                                                                                file=context.has_install_file(),
