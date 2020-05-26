@@ -63,7 +63,7 @@ class TransactionContext:
                  install_file: str = None, repository: str = None, pkg: ArchPackage = None,
                  remote_repo_map: Dict[str, str] = None, provided_map: Dict[str, Set[str]] = None,
                  remote_provided_map: Dict[str, Set[str]] = None, aur_idx: Set[str] = None,
-                 missing_deps: List[Tuple[str, str]] = None):
+                 missing_deps: List[Tuple[str, str]] = None, pkg_sizes: Dict[str, int] = {}):
         self.name = name
         self.base = base
         self.maintainer = maintainer
@@ -84,6 +84,7 @@ class TransactionContext:
         self.remote_provided_map = remote_provided_map
         self.aur_idx = aur_idx
         self.missing_deps = missing_deps
+        self.pkg_sizes = pkg_sizes
 
     @classmethod
     def gen_context_from(cls, pkg: ArchPackage, arch_config: dict, root_password: str, handler: ProcessHandler) -> "TransactionContext":
@@ -749,14 +750,14 @@ class ArchManager(SoftwareManager):
         return files
 
     def _upgrade_repo_pkgs(self, pkgs: List[str], handler: ProcessHandler, root_password: str, arch_config: dict, overwrite_files: bool = False,
-                           status_handler: TransactionStatusHandler = None, already_downloaded: bool = False) -> bool:
+                           status_handler: TransactionStatusHandler = None, already_downloaded: bool = False, sizes: Dict[str, int] = None) -> bool:
 
         downloaded = 0
 
         if not already_downloaded:
             if self._should_download_packages(arch_config):
                 try:
-                    downloaded = self._download_packages(pkgs, handler, root_password)
+                    downloaded = self._download_packages(pkgs, handler, root_password, sizes)
                 except ArchDownloadException:
                     return False
 
@@ -804,7 +805,8 @@ class ArchManager(SoftwareManager):
                                                    overwrite_files=True,
                                                    status_handler=output_handler,
                                                    already_downloaded=True,
-                                                   arch_config=arch_config)
+                                                   arch_config=arch_config,
+                                                   sizes=sizes)
                 else:
                     output_handler.stop_working()
                     output_handler.join()
@@ -832,13 +834,15 @@ class ArchManager(SoftwareManager):
             watcher.change_substatus('')
             return False
 
-        aur_pkgs, repo_pkgs = [], []
+        aur_pkgs, repo_pkgs, pkg_sizes = [], [], {}
 
         for req in (*requirements.to_install, *requirements.to_upgrade):
             if req.pkg.repository == 'aur':
                 aur_pkgs.append(req.pkg)
             else:
                 repo_pkgs.append(req.pkg)
+
+            pkg_sizes[req.pkg.name] = req.required_size
 
         if aur_pkgs and not self._check_action_allowed(aur_pkgs[0], watcher):
             return False
@@ -865,7 +869,11 @@ class ArchManager(SoftwareManager):
             self.logger.info("Upgrading {} repository packages: {}".format(len(repo_pkgs_names),
                                                                            ', '.join(repo_pkgs_names)))
 
-            if not self._upgrade_repo_pkgs(pkgs=repo_pkgs_names, handler=handler, root_password=root_password, arch_config=arch_config):
+            if not self._upgrade_repo_pkgs(pkgs=repo_pkgs_names,
+                                           handler=handler,
+                                           root_password=root_password,
+                                           arch_config=arch_config,
+                                           sizes=pkg_sizes):
                 return False
 
         if aur_pkgs:
@@ -1321,7 +1329,7 @@ class ArchManager(SoftwareManager):
             downloaded = 0
             if self._should_download_packages(context.config):
                 try:
-                    downloaded = self._download_packages(repo_dep_names, context.handler, context.root_password)
+                    downloaded = self._download_packages(repo_dep_names, context.handler, context.root_password, context.pkg_sizes)
                 except ArchDownloadException:
                     return False
 
@@ -1447,7 +1455,7 @@ class ArchManager(SoftwareManager):
     def _ask_and_install_missing_deps(self, context: TransactionContext,  missing_deps: List[Tuple[str, str]]) -> bool:
         context.watcher.change_substatus(self.i18n['arch.missing_deps_found'].format(bold(context.name)))
 
-        if not confirmation.request_install_missing_deps(context.name, missing_deps, context.watcher, self.i18n):
+        if not confirmation.request_install_missing_deps(context.name, missing_deps, context.watcher, self.i18n, context):
             context.watcher.print(self.i18n['action.cancelled'])
             return False
 
@@ -1604,7 +1612,7 @@ class ArchManager(SoftwareManager):
 
                 sorted_deps = sorting.sort(to_sort, {**deps_data, **subdeps_data}, provided_map)
 
-                if display_deps_dialog and not confirmation.request_install_missing_deps(None, sorted_deps, context.watcher, self.i18n):
+                if display_deps_dialog and not confirmation.request_install_missing_deps(None, sorted_deps, context.watcher, self.i18n, context):
                     context.watcher.print(self.i18n['action.cancelled'])
                     return True  # because the main package installation was successful
 
@@ -1621,7 +1629,7 @@ class ArchManager(SoftwareManager):
     def _should_download_packages(self, arch_config: dict) -> bool:
         return bool(arch_config['repositories_mthread_download']) and self.context.file_downloader.is_multithreaded()
 
-    def _download_packages(self, pkgnames: List[str], handler: ProcessHandler, root_password: str) -> int:
+    def _download_packages(self, pkgnames: List[str], handler: ProcessHandler, root_password: str, sizes: Dict[str, int] = None) -> int:
         download_service = MultithreadedDownloadService(file_downloader=self.context.file_downloader,
                                                         http_client=self.http_client,
                                                         logger=self.context.logger,
@@ -1629,6 +1637,7 @@ class ArchManager(SoftwareManager):
         self.logger.info("Initializing multi-threaded download for {} package(s)".format(len(pkgnames)))
         return download_service.download_packages(pkgs=pkgnames,
                                                   handler=handler,
+                                                  sizes=sizes,
                                                   root_password=root_password)
 
     def _install(self, context: TransactionContext) -> bool:
@@ -1684,7 +1693,7 @@ class ArchManager(SoftwareManager):
 
             if to_download:
                 try:
-                    downloaded = self._download_packages(to_download, context.handler, context.root_password)
+                    downloaded = self._download_packages(to_download, context.handler, context.root_password, context.pkg_sizes)
                 except ArchDownloadException:
                     return False
 
@@ -1894,7 +1903,7 @@ class ArchManager(SoftwareManager):
             context.missing_deps = missing_deps
             context.watcher.change_substatus(self.i18n['arch.missing_deps_found'].format(bold(context.name)))
 
-            if not confirmation.request_install_missing_deps(context.name, missing_deps, context.watcher, self.i18n):
+            if not confirmation.request_install_missing_deps(context.name, missing_deps, context.watcher, self.i18n, context):
                 context.watcher.print(self.i18n['action.cancelled'])
                 return False
 

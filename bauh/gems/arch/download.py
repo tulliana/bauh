@@ -3,6 +3,7 @@ import logging
 import os
 import time
 import traceback
+from math import floor
 from typing import List, Iterable, Dict
 
 from bauh.api.abstract.download import FileDownloader
@@ -35,7 +36,7 @@ class MultiThreadedDownloader:
         self.cache_dir = cache_dir
         self.logger = logger
 
-    def download_package(self, pkg: Dict[str, str], root_password: str, substatus_prefix: str, watcher: ProcessWatcher) -> bool:
+    def download_package(self, pkg: Dict[str, str], root_password: str, substatus_prefix: str, watcher: ProcessWatcher, size: int) -> bool:
         if self.mirrors and self.branch:
             pkgname = '{}-{}{}.pkg'.format(pkg['n'], pkg['v'], ('-{}'.format(pkg['a']) if pkg['a'] else ''))
 
@@ -47,15 +48,18 @@ class MultiThreadedDownloader:
 
             url_base = '{}/{}/{}/{}'.format(self.branch, pkg['r'], arch, pkgname)
             base_output_path = '{}/{}'.format(self.cache_dir, pkgname)
+
             for mirror in self.mirrors:
                 for ext in self.extensions:
                     url = '{}{}{}'.format(mirror, url_base, ext)
                     output_path = base_output_path + ext
 
                     watcher.print("Downloading '{}' from mirror '{}'".format(pkgname, mirror))
+
                     pkg_downloaded = self.downloader.download(file_url=url, watcher=watcher, output_path=output_path,
                                                               cwd='.', root_password=root_password, display_file_size=True,
-                                                              substatus_prefix=substatus_prefix)
+                                                              substatus_prefix=substatus_prefix,
+                                                              known_size=size)
                     if not pkg_downloaded:
                         watcher.print("Could not download '{}' from mirror '{}'".format(pkgname, mirror))
                     else:
@@ -66,7 +70,8 @@ class MultiThreadedDownloader:
                                                                   output_path=output_path + '.sig',
                                                                   cwd='.', root_password=root_password,
                                                                   display_file_size=False,
-                                                                  substatus_prefix=substatus_prefix)
+                                                                  substatus_prefix=substatus_prefix,
+                                                                  max_threads=1)
 
                         if not sig_downloaded:
                             self.logger.warning("Could not download package '{}' signature".format(pkg['n']))
@@ -84,7 +89,7 @@ class MultithreadedDownloadService:
         self.logger = logger
         self.i18n = i18n
 
-    def download_packages(self, pkgs: List[str], handler: ProcessHandler, root_password: str) -> int:
+    def download_packages(self, pkgs: List[str], handler: ProcessHandler, root_password: str, sizes: Dict[str, int] = None) -> int:
         ti = time.time()
         watcher = handler.watcher
         mirrors = pacman.list_available_mirrors()
@@ -133,7 +138,11 @@ class MultithreadedDownloadService:
                 perc = '({0:.2f}%)'.format((downloaded / (2 * len(pkgs))) * 100)
                 status_prefix = '{} [{}/{}]'.format(perc, downloaded + 1, len(pkgs))
 
-                if downloader.download_package(pkg=pkg, root_password=root_password, watcher=handler.watcher, substatus_prefix=status_prefix):
+                if downloader.download_package(pkg=pkg,
+                                               root_password=root_password,
+                                               watcher=handler.watcher,
+                                               substatus_prefix=status_prefix,
+                                               size=sizes.get(pkg['n']) if sizes else None):
                     downloaded += 1
             except:
                 traceback.print_exc()

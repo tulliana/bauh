@@ -3,13 +3,14 @@ import os
 import re
 import time
 import traceback
+from math import floor
 from threading import Thread
 
 from bauh.api.abstract.download import FileDownloader
 from bauh.api.abstract.handler import ProcessWatcher
 from bauh.api.http import HttpClient
 from bauh.commons.html import bold
-from bauh.commons.system import run_cmd, ProcessHandler, SimpleProcess
+from bauh.commons.system import run_cmd, ProcessHandler, SimpleProcess, get_human_size_str
 from bauh.view.util.translation import I18n
 
 RE_HAS_EXTENSION = re.compile(r'.+\.\w+$')
@@ -26,11 +27,22 @@ class AdaptableFileDownloader(FileDownloader):
     def is_aria2c_available(self) -> bool:
         return bool(run_cmd('which aria2c', print_error=False))
 
-    def _get_aria2c_process(self, url: str, output_path: str, cwd: str, root_password: str) -> SimpleProcess:
+    def _get_aria2c_process(self, url: str, output_path: str, cwd: str, root_password: str, max_threads: int, known_size: int) -> SimpleProcess:
+
+        if max_threads and max_threads > 0:
+            threads = max_threads
+        elif known_size:
+            threads = 16 if known_size >= 16000000 else floor(known_size / 1000000)
+
+            if threads <= 0:
+                threads = 1
+        else:
+            threads = 16
+
         cmd = ['aria2c', url,
                '--no-conf',
-               '--max-connection-per-server=16',
-               '--split=16',
+               '--max-connection-per-server={}'.format(threads),
+               '--split={}'.format(threads),
                '--enable-color=false',
                '--stderr=true',
                '--summary-interval=0',
@@ -76,7 +88,7 @@ class AdaptableFileDownloader(FileDownloader):
         except:
             pass
 
-    def download(self, file_url: str, watcher: ProcessWatcher, output_path: str = None, cwd: str = None, root_password: str = None, substatus_prefix: str = None, display_file_size: bool = True) -> bool:
+    def download(self, file_url: str, watcher: ProcessWatcher, output_path: str = None, cwd: str = None, root_password: str = None, substatus_prefix: str = None, display_file_size: bool = True, max_threads: int = None, known_size: int = None) -> bool:
         self.logger.info('Downloading {}'.format(file_url))
         handler = ProcessHandler(watcher)
         file_name = file_url.split('/')[-1]
@@ -93,7 +105,7 @@ class AdaptableFileDownloader(FileDownloader):
 
             if self.is_multithreaded():
                 ti = time.time()
-                process = self._get_aria2c_process(file_url, output_path, final_cwd, root_password)
+                process = self._get_aria2c_process(file_url, output_path, final_cwd, root_password, max_threads, known_size)
                 downloader = 'aria2c'
             else:
                 ti = time.time()
@@ -116,7 +128,10 @@ class AdaptableFileDownloader(FileDownloader):
                 watcher.change_substatus(msg)
 
                 if display_file_size:
-                    Thread(target=self._display_file_size, args=(file_url, msg, watcher)).start()
+                    if known_size:
+                        watcher.change_substatus(msg + ' ( {} )'.format(get_human_size_str(known_size)))
+                    else:
+                        Thread(target=self._display_file_size, args=(file_url, msg, watcher)).start()
 
             success, _ = handler.handle_simple(process)
         except:

@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     </p>
     
 - Arch
-	- supporting multi-threaded download for repository packages (not enabled by default)
+	- supporting multi-threaded download for repository packages (enabled by default)
     <p align="center">
         <img src="https://raw.githubusercontent.com/vinifmor/bauh/staging/pictures/releases/0.9.4/arch_repo_mthread.png">
     </p>
