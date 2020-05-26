@@ -9,8 +9,7 @@ from bauh.api.abstract.download import FileDownloader
 from bauh.api.abstract.handler import ProcessWatcher
 from bauh.api.http import HttpClient
 from bauh.commons.html import bold
-from bauh.commons.system import run_cmd, new_subprocess, ProcessHandler, SystemProcess, SimpleProcess, \
-    new_root_subprocess
+from bauh.commons.system import run_cmd, ProcessHandler, SimpleProcess
 from bauh.view.util.translation import I18n
 
 RE_HAS_EXTENSION = re.compile(r'.+\.\w+$')
@@ -27,7 +26,7 @@ class AdaptableFileDownloader(FileDownloader):
     def is_aria2c_available(self) -> bool:
         return bool(run_cmd('which aria2c', print_error=False))
 
-    def _get_aria2c_process(self, url: str, output_path: str, cwd: str, root_password: str) -> SystemProcess:
+    def _get_aria2c_process(self, url: str, output_path: str, cwd: str, root_password: str) -> SimpleProcess:
         cmd = ['aria2c', url,
                '--no-conf',
                '--max-connection-per-server=16',
@@ -41,6 +40,7 @@ class AdaptableFileDownloader(FileDownloader):
                '--continue=true',
                '--timeout=5',
                '--max-file-not-found=3',
+               '--file-allocation=falloc',
                '--remote-time=true']
 
         if output_path:
@@ -48,16 +48,7 @@ class AdaptableFileDownloader(FileDownloader):
             cmd.append('--dir=' + '/'.join(output_split[:-1]))
             cmd.append('--out=' + output_split[-1])
 
-        if root_password:
-            proc = new_root_subprocess(cmd=cmd, cwd=cwd, root_password=root_password)
-        else:
-            proc = new_subprocess(cmd=cmd, cwd=cwd)
-
-        return SystemProcess(proc,
-                             skip_stdout=True,
-                             check_error_output=False,
-                             success_phrases=['download completed'],
-                             output_delay=0.001)
+        return SimpleProcess(cmd=cmd, root_password=root_password, cwd=cwd)
 
     def _get_wget_process(self, url: str, output_path: str, cwd: str, root_password: str) -> SimpleProcess:
         cmd = ['wget', url, '--continue', '--retry-connrefused', '--tries=10', '--no-config']
@@ -127,10 +118,7 @@ class AdaptableFileDownloader(FileDownloader):
                 if display_file_size:
                     Thread(target=self._display_file_size, args=(file_url, msg, watcher)).start()
 
-            if isinstance(process, SimpleProcess):
-                success = handler.handle_simple(process)
-            else:
-                success = handler.handle(process)
+            success, _ = handler.handle_simple(process)
         except:
             traceback.print_exc()
             self._rm_bad_file(file_name, output_path, final_cwd, handler, root_password)
