@@ -58,7 +58,6 @@ class MultiThreadedDownloader:
                                                               substatus_prefix=substatus_prefix)
                     if not pkg_downloaded:
                         watcher.print("Could not download '{}' from mirror '{}'".format(pkgname, mirror))
-                        break
                     else:
                         self.logger.info("Package '{}' successfully downloaded".format(pkg['n']))
                         self.logger.info("Downloading package '{}' signature".format(pkg['n']))
