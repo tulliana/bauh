@@ -42,7 +42,6 @@ class AdaptableFileDownloader(FileDownloader):
         cmd = ['aria2c', url,
                '--no-conf',
                '--max-connection-per-server={}'.format(threads),
-               '--split={}'.format(threads),
                '--enable-color=false',
                '--stderr=true',
                '--summary-interval=0',
@@ -54,6 +53,9 @@ class AdaptableFileDownloader(FileDownloader):
                '--max-file-not-found=3',
                '--file-allocation=falloc',
                '--remote-time=true']
+
+        if threads > 1:
+            cmd.append('--split={}'.format(threads))
 
         if output_path:
             output_split = output_path.split('/')
@@ -106,7 +108,7 @@ class AdaptableFileDownloader(FileDownloader):
             if self.is_multithreaded():
                 ti = time.time()
                 process = self._get_aria2c_process(file_url, output_path, final_cwd, root_password, max_threads, known_size)
-                downloader = 'aria2c'
+                downloader = 'aria2'
             else:
                 ti = time.time()
                 process = self._get_wget_process(file_url, output_path, final_cwd, root_password)
