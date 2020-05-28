@@ -99,12 +99,14 @@ class MultiThreadedDownloader:
     def wait_for_async_downloads(self):
         self.async_downloads_lock.acquire()
 
-        if self.async_downloads:
-            for t in self.async_downloads:
-                t.join()
+        try:
+            if self.async_downloads:
+                for t in self.async_downloads:
+                    t.join()
 
-        self.async_downloads.clear()
-        self.async_downloads_lock.release()
+            self.async_downloads.clear()
+        finally:
+            self.async_downloads_lock.release()
 
 
 class MultithreadedDownloadService:
@@ -177,7 +179,9 @@ class MultithreadedDownloadService:
                                      type_=MessageType.ERROR)
                 raise ArchDownloadException()
 
+        self.logger.info("Waiting for signature downloads to complete")
         downloader.wait_for_async_downloads()
+        self.logger.info("Signature downloads finished")
         tf = time.time()
         self.logger.info("Download time: {0:.2f} seconds".format(tf - ti))
         return downloaded
