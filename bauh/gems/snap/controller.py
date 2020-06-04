@@ -175,7 +175,7 @@ class SnapManager(SoftwareManager):
     def get_history(self, pkg: SnapApplication) -> PackageHistory:
         raise Exception("'get_history' is not supported by {}".format(pkg.__class__.__name__))
 
-    def install(self, pkg: SnapApplication, root_password: str, watcher: ProcessWatcher) -> TransactionResult:
+    def install(self, pkg: SnapApplication, root_password: str, disk_loader: DiskCacheLoader, watcher: ProcessWatcher) -> TransactionResult:
         info_path = self.get_info_path()
 
         if not info_path:

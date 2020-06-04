@@ -612,7 +612,7 @@ class WebApplicationManager(SoftwareManager):
                                                                                                          pkg.name))
             traceback.print_exc()
 
-    def install(self, pkg: WebApplication, root_password: str, watcher: ProcessWatcher) -> TransactionResult:
+    def install(self, pkg: WebApplication, root_password: str, disk_loader: DiskCacheLoader, watcher: ProcessWatcher) -> TransactionResult:
 
         continue_install, install_options = self._ask_install_options(pkg, watcher)
 

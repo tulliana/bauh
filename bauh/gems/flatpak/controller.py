@@ -296,7 +296,7 @@ class FlatpakManager(SoftwareManager):
 
         return PackageHistory(pkg=pkg, history=commits, pkg_status_idx=status_idx)
 
-    def install(self, pkg: FlatpakApplication, root_password: str, watcher: ProcessWatcher) -> TransactionResult:
+    def install(self, pkg: FlatpakApplication, root_password: str, disk_loader: DiskCacheLoader, watcher: ProcessWatcher) -> TransactionResult:
 
         config = read_config()
 

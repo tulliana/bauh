@@ -110,7 +110,7 @@ class AppImageManager(SoftwareManager):
         if inp_cat.get_selected() != cat_ops[0].value:
             appim.categories.append(inp_cat.get_selected())
 
-        res = self.install(root_password=root_password, pkg=appim, watcher=watcher).success
+        res = self.install(root_password=root_password, pkg=appim, disk_loader=None, watcher=watcher).success
 
         if res:
             appim.installed = True
@@ -271,7 +271,7 @@ class AppImageManager(SoftwareManager):
                 pkg.version = old_release['0_version']
                 pkg.latest_version = pkg.version
                 pkg.url_download = old_release['2_url_download']
-                if self.install(pkg, root_password, watcher).success:
+                if self.install(pkg, root_password, None, watcher).success:
                     self.cache_to_disk(pkg, None, False)
                     return True
                 else:
@@ -296,7 +296,7 @@ class AppImageManager(SoftwareManager):
                 watcher.change_substatus('')
                 return False
 
-            if not self.install(req.pkg, root_password, watcher).success:
+            if not self.install(req.pkg, root_password, None, watcher).success:
                 watcher.change_substatus('')
                 return False
 
@@ -398,7 +398,7 @@ class AppImageManager(SoftwareManager):
                 if RE_ICON_ENDS_WITH.match(f):
                     return f
 
-    def install(self, pkg: AppImage, root_password: str, watcher: ProcessWatcher) -> TransactionResult:
+    def install(self, pkg: AppImage, root_password: str, disk_loader: DiskCacheLoader, watcher: ProcessWatcher) -> TransactionResult:
         handler = ProcessHandler(watcher)
 
         out_dir = INSTALLATION_PATH + pkg.name.lower()

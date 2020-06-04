@@ -278,18 +278,22 @@ class GenericSoftwareManager(SoftwareManager):
         if man:
             return man.uninstall(app, root_password, handler)
 
-    def install(self, app: SoftwarePackage, root_password: str, handler: ProcessWatcher) -> TransactionResult:
+    def install(self, app: SoftwarePackage, root_password: str, disk_loader: DiskCacheLoader, handler: ProcessWatcher) -> TransactionResult:
         man = self._get_manager_for(app)
 
         if man:
             ti = time.time()
+            disk_loader = self.disk_loader_factory.new()
+            disk_loader.start()
             try:
                 self.logger.info('Installing {}'.format(app))
-                return man.install(app, root_password, handler)
+                return man.install(app, root_password, disk_loader, handler)
             except:
                 traceback.print_exc()
                 return TransactionResult(success=False, installed=[], removed=[])
             finally:
+                disk_loader.stop_working()
+                disk_loader.join()
                 tf = time.time()
                 self.logger.info('Installation of {}'.format(app) + 'took {0:.2f} minutes'.format((tf - ti)/60))
 

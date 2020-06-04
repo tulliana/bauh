@@ -639,7 +639,7 @@ class InstallPackage(AsyncAction):
                     return
 
             try:
-                transaction_res = self.manager.install(self.pkg.model, self.root_pwd, self)
+                transaction_res = self.manager.install(self.pkg.model, self.root_pwd, None, self)
                 res['success'] = transaction_res.success
                 res['installed'] = transaction_res.installed
                 res['removed'] = transaction_res.removed

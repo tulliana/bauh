@@ -180,10 +180,11 @@ class SoftwareManager(ABC):
         pass
 
     @abstractmethod
-    def install(self, pkg: SoftwarePackage, root_password: str, watcher: ProcessWatcher) -> TransactionResult:
+    def install(self, pkg: SoftwarePackage, root_password: str, disk_loader: DiskCacheLoader, watcher: ProcessWatcher) -> TransactionResult:
         """
         :param pkg:
         :param root_password: the root user password (if required)
+        :param disk_loader
         :param watcher:
         :return:
         """

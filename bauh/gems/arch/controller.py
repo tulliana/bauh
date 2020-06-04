@@ -64,7 +64,8 @@ class TransactionContext:
                  install_file: str = None, repository: str = None, pkg: ArchPackage = None,
                  remote_repo_map: Dict[str, str] = None, provided_map: Dict[str, Set[str]] = None,
                  remote_provided_map: Dict[str, Set[str]] = None, aur_idx: Set[str] = None,
-                 missing_deps: List[Tuple[str, str]] = None):
+                 missing_deps: List[Tuple[str, str]] = None, installed: Set[str] = None, removed: Dict[str, SoftwarePackage] = None,
+                 disk_loader: DiskCacheLoader = None):
         self.name = name
         self.base = base
         self.maintainer = maintainer
@@ -85,12 +86,16 @@ class TransactionContext:
         self.remote_provided_map = remote_provided_map
         self.aur_idx = aur_idx
         self.missing_deps = missing_deps
+        self.installed = installed
+        self.removed = removed
+        self.disk_loader = disk_loader
 
     @classmethod
     def gen_context_from(cls, pkg: ArchPackage, arch_config: dict, root_password: str, handler: ProcessHandler) -> "TransactionContext":
         return cls(name=pkg.name, base=pkg.get_base_name(), maintainer=pkg.maintainer, repository=pkg.repository,
                    arch_config=arch_config, watcher=handler.watcher, handler=handler, skip_opt_deps=True,
-                   change_progress=True, root_password=root_password, dependency=False)
+                   change_progress=True, root_password=root_password, dependency=False,
+                   installed=set(), removed={})
 
     def get_base_name(self):
         return self.base if self.base else self.name
@@ -885,7 +890,7 @@ class ArchManager(SoftwareManager):
                 context.change_progress = False
 
                 try:
-                    if not self.install(pkg=pkg, root_password=root_password, watcher=watcher, context=context).success:
+                    if not self.install(pkg=pkg, root_password=root_password, watcher=watcher, disk_loader=None, context=context).success:
                         watcher.print(self.i18n['arch.upgrade.fail'].format('"{}"'.format(pkg.name)))
                         self.logger.error("Could not upgrade AUR package '{}'".format(pkg.name))
                         watcher.change_substatus('')
@@ -1491,6 +1496,8 @@ class ArchManager(SoftwareManager):
             message.show_deps_not_installed(context.watcher, context.name, deps_not_installed, self.i18n)
             return False
 
+        context.installed.update({d[0] for d in missing_deps})
+
         return True
 
     def _list_missing_deps(self, context: TransactionContext) -> List[Tuple[str, str]]:
@@ -1648,6 +1655,8 @@ class ArchManager(SoftwareManager):
 
                 if deps_not_installed:
                     message.show_optdeps_not_installed(deps_not_installed, context.watcher, self.i18n)
+                else:
+                    context.installed.update({dep[0] for dep in sorted_deps})
 
         return True
 
@@ -1694,6 +1703,12 @@ class ArchManager(SoftwareManager):
                 to_uninstall = [conflict for conflict in conflicting_apps if conflict != context.name]
 
                 self.logger.info("Preparing to uninstall conflicting packages: {}".format(to_uninstall))
+
+                pkgs_to_uninstall = self.read_installed(disk_loader=context.disk_loader, names=to_uninstall, internet_available=True).installed
+
+                if not pkgs_to_uninstall:
+                    self.logger.warning("Could not load packages to uninstall")
+
                 for conflict in to_uninstall:
                     context.watcher.change_substatus(self.i18n['arch.uninstalling.conflict'].format(bold(conflict)))
 
@@ -1702,6 +1717,10 @@ class ArchManager(SoftwareManager):
                                                      body=self.i18n['arch.uninstalling.conflict.fail'].format(bold(conflict)),
                                                      type_=MessageType.ERROR)
                         return False
+                    else:
+                        uninstalled = [p for p in pkgs_to_uninstall if p.name == conflict]
+                        if uninstalled:
+                            context.removed[conflict] = uninstalled[0]
         else:
             self.logger.info("No conflict detected for '{}'".format(context.name))
 
@@ -1746,6 +1765,7 @@ class ArchManager(SoftwareManager):
         self._update_progress(context, 95)
 
         if installed:
+            context.installed.update(to_install)
             context.watcher.change_substatus(self.i18n['status.caching_data'].format(bold(context.name)))
 
             if not context.maintainer:
@@ -1877,16 +1897,16 @@ class ArchManager(SoftwareManager):
             watcher.change_substatus(self.i18n['arch.makepkg.optimizing'])
             ArchCompilationOptimizer(arch_config, self.i18n, self.context.logger).optimize()
 
-    def install(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher, context: TransactionContext = None) -> TransactionResult:
+    def install(self, pkg: ArchPackage, root_password: str, disk_loader: DiskCacheLoader, watcher: ProcessWatcher, context: TransactionContext = None) -> TransactionResult:
         self.aur_client.clean_caches()
 
         if not self._check_action_allowed(pkg, watcher):
-            return False
+            return TransactionResult(success=False, installed=[], removed=[])
 
         handler = ProcessHandler(watcher) if not context else context.handler
 
         if self._is_database_locked(handler, root_password):
-            return False
+            return TransactionResult(success=False, installed=[], removed=[])
 
         if context:
             install_context = context
@@ -1894,6 +1914,7 @@ class ArchManager(SoftwareManager):
             install_context = TransactionContext.gen_context_from(pkg=pkg, handler=handler, arch_config=read_config(),
                                                                   root_password=root_password)
             install_context.skip_opt_deps = False
+            install_context.disk_loader = disk_loader
 
         self._sync_databases(arch_config=install_context.config, root_password=root_password, handler=handler)
 
@@ -1909,7 +1930,30 @@ class ArchManager(SoftwareManager):
                     data = json.loads(data)
                     pkg.fill_cached_data(data)
 
-        return TransactionResult(success=res, installed=[pkg] if res else [] , removed=[])
+        installed = []
+
+        if res and disk_loader and install_context.installed:
+            installed.append(pkg)
+
+            installed_to_load = []
+
+            if len(install_context.installed) > 1:
+                installed_to_load.extend({i for i in installed if i != pkg.name})
+
+            if installed_to_load:
+                installed_loaded = self.read_installed(disk_loader=disk_loader,
+                                                       names=installed_to_load,
+                                                       internet_available=True).installed
+
+                installed.extend(installed_loaded)
+
+                if len(installed_loaded) + 1 != len(install_context.installed):
+                    missing = ','.join({p for p in installed_loaded if p.name not in install_context.installed})
+                    self.logger.warning("Could not load all installed packages. Missing: {}".format(missing))
+
+        removed = [*install_context.removed.values()] if install_context.removed else []
+
+        return TransactionResult(success=res, installed=installed, removed=removed)
 
     def _install_from_repository(self, context: TransactionContext) -> bool:
         try:
