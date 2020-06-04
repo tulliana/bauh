@@ -2,12 +2,12 @@ import re
 import re
 import time
 import traceback
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, STDOUT
 from threading import Thread
 from typing import List, Set, Type, Tuple, Dict
 
 from bauh.api.abstract.controller import SoftwareManager, SearchResult, ApplicationContext, UpgradeRequirements, \
-    UpgradeRequirement
+    UpgradeRequirement, TransactionResult
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import SoftwarePackage, PackageUpdate, PackageHistory, PackageSuggestion, \
@@ -278,7 +278,7 @@ class GenericSoftwareManager(SoftwareManager):
         if man:
             return man.uninstall(app, root_password, handler)
 
-    def install(self, app: SoftwarePackage, root_password: str, handler: ProcessWatcher) -> bool:
+    def install(self, app: SoftwarePackage, root_password: str, handler: ProcessWatcher) -> TransactionResult:
         man = self._get_manager_for(app)
 
         if man:
@@ -288,7 +288,7 @@ class GenericSoftwareManager(SoftwareManager):
                 return man.install(app, root_password, handler)
             except:
                 traceback.print_exc()
-                return False
+                return TransactionResult(success=False, installed=[], removed=[])
             finally:
                 tf = time.time()
                 self.logger.info('Installation of {}'.format(app) + 'took {0:.2f} minutes'.format((tf - ti)/60))

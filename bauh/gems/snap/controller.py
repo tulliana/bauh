@@ -4,7 +4,8 @@ from datetime import datetime
 from threading import Thread
 from typing import List, Set, Type
 
-from bauh.api.abstract.controller import SoftwareManager, SearchResult, ApplicationContext, UpgradeRequirements
+from bauh.api.abstract.controller import SoftwareManager, SearchResult, ApplicationContext, UpgradeRequirements, \
+    TransactionResult
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import SoftwarePackage, PackageHistory, PackageUpdate, PackageSuggestion, \
@@ -139,7 +140,7 @@ class SnapManager(SoftwareManager):
         return ProcessHandler(watcher).handle(SystemProcess(subproc=snap.downgrade_and_stream(pkg.name, root_password), wrong_error_phrase=None))
 
     def upgrade(self, requirements: UpgradeRequirements, root_password: str, watcher: ProcessWatcher) -> SystemProcess:
-        raise Exception("'update' is not supported by {}".format(pkg.__class__.__name__))
+        raise Exception("'update' is not supported")
 
     def uninstall(self, pkg: SnapApplication, root_password: str, watcher: ProcessWatcher) -> bool:
         uninstalled = ProcessHandler(watcher).handle(SystemProcess(subproc=snap.uninstall_and_stream(pkg.name, root_password)))
@@ -174,7 +175,7 @@ class SnapManager(SoftwareManager):
     def get_history(self, pkg: SnapApplication) -> PackageHistory:
         raise Exception("'get_history' is not supported by {}".format(pkg.__class__.__name__))
 
-    def install(self, pkg: SnapApplication, root_password: str, watcher: ProcessWatcher) -> bool:
+    def install(self, pkg: SnapApplication, root_password: str, watcher: ProcessWatcher) -> TransactionResult:
         info_path = self.get_info_path()
 
         if not info_path:
@@ -204,14 +205,14 @@ class SnapManager(SoftwareManager):
                         if res and info_path:
                             pkg.has_apps_field = snap.has_apps_field(pkg.name, info_path)
 
-                        return res
+                        return TransactionResult(success=res, installed=[pkg] if res else [], removed=[])
                 else:
                     self.logger.error("Could not find available channels in the installation output: {}".format(output))
         else:
             if info_path:
                 pkg.has_apps_field = snap.has_apps_field(pkg.name, info_path)
 
-        return res
+        return TransactionResult(success=res, installed=[pkg] if res else [], removed=[])
 
     def is_enabled(self) -> bool:
         return self.enabled

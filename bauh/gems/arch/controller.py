@@ -15,7 +15,8 @@ from typing import List, Set, Type, Tuple, Dict, Iterable
 
 import requests
 
-from bauh.api.abstract.controller import SearchResult, SoftwareManager, ApplicationContext, UpgradeRequirements
+from bauh.api.abstract.controller import SearchResult, SoftwareManager, ApplicationContext, UpgradeRequirements, \
+    TransactionResult
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import PackageUpdate, PackageHistory, SoftwarePackage, PackageSuggestion, PackageStatus, \
@@ -884,7 +885,7 @@ class ArchManager(SoftwareManager):
                 context.change_progress = False
 
                 try:
-                    if not self.install(pkg=pkg, root_password=root_password, watcher=watcher, context=context):
+                    if not self.install(pkg=pkg, root_password=root_password, watcher=watcher, context=context).success:
                         watcher.print(self.i18n['arch.upgrade.fail'].format('"{}"'.format(pkg.name)))
                         self.logger.error("Could not upgrade AUR package '{}'".format(pkg.name))
                         watcher.change_substatus('')
@@ -1876,7 +1877,7 @@ class ArchManager(SoftwareManager):
             watcher.change_substatus(self.i18n['arch.makepkg.optimizing'])
             ArchCompilationOptimizer(arch_config, self.i18n, self.context.logger).optimize()
 
-    def install(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher, context: TransactionContext = None) -> bool:
+    def install(self, pkg: ArchPackage, root_password: str, watcher: ProcessWatcher, context: TransactionContext = None) -> TransactionResult:
         self.aur_client.clean_caches()
 
         if not self._check_action_allowed(pkg, watcher):
@@ -1908,7 +1909,7 @@ class ArchManager(SoftwareManager):
                     data = json.loads(data)
                     pkg.fill_cached_data(data)
 
-        return res
+        return TransactionResult(success=res, installed=[pkg] if res else [] , removed=[])
 
     def _install_from_repository(self, context: TransactionContext) -> bool:
         try:

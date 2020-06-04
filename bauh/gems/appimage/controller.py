@@ -16,7 +16,8 @@ from typing import Set, Type, List, Tuple
 from colorama import Fore
 
 from bauh.api.abstract.context import ApplicationContext
-from bauh.api.abstract.controller import SoftwareManager, SearchResult, UpgradeRequirements, UpgradeRequirement
+from bauh.api.abstract.controller import SoftwareManager, SearchResult, UpgradeRequirements, UpgradeRequirement, \
+    TransactionResult
 from bauh.api.abstract.disk import DiskCacheLoader
 from bauh.api.abstract.handler import ProcessWatcher, TaskManager
 from bauh.api.abstract.model import SoftwarePackage, PackageHistory, PackageUpdate, PackageSuggestion, \
@@ -109,13 +110,13 @@ class AppImageManager(SoftwareManager):
         if inp_cat.get_selected() != cat_ops[0].value:
             appim.categories.append(inp_cat.get_selected())
 
-        installed = self.install(root_password=root_password, pkg=appim, watcher=watcher)
+        res = self.install(root_password=root_password, pkg=appim, watcher=watcher).success
 
-        if installed:
+        if res:
             appim.installed = True
             self.cache_to_disk(appim, None, False)
 
-        return installed
+        return res
 
     def update_file(self, pkg: AppImage, root_password: str, watcher: ProcessWatcher):
         file_chooser = FileChooserComponent(label=self.i18n['file'].capitalize(), allowed_extensions={'AppImage'})
@@ -270,7 +271,7 @@ class AppImageManager(SoftwareManager):
                 pkg.version = old_release['0_version']
                 pkg.latest_version = pkg.version
                 pkg.url_download = old_release['2_url_download']
-                if self.install(pkg, root_password, watcher):
+                if self.install(pkg, root_password, watcher).success:
                     self.cache_to_disk(pkg, None, False)
                     return True
                 else:
@@ -295,7 +296,7 @@ class AppImageManager(SoftwareManager):
                 watcher.change_substatus('')
                 return False
 
-            if not self.install(req.pkg, root_password, watcher):
+            if not self.install(req.pkg, root_password, watcher).success:
                 watcher.change_substatus('')
                 return False
 
@@ -397,7 +398,7 @@ class AppImageManager(SoftwareManager):
                 if RE_ICON_ENDS_WITH.match(f):
                     return f
 
-    def install(self, pkg: AppImage, root_password: str, watcher: ProcessWatcher) -> bool:
+    def install(self, pkg: AppImage, root_password: str, watcher: ProcessWatcher) -> TransactionResult:
         handler = ProcessHandler(watcher)
 
         out_dir = INSTALLATION_PATH + pkg.name.lower()
@@ -429,7 +430,8 @@ class AppImageManager(SoftwareManager):
                 watcher.show_message(title=self.i18n['error'].capitalize(),
                                      body=self.i18n['appimage.install.imported.rename_error'].format(bold(pkg.local_file_path.split('/')[-1]), bold(output)),
                                      type_=MessageType.ERROR)
-                return False
+
+                return TransactionResult(success=False, installed=[], removed=[])
 
         else:
             appimage_url = pkg.url_download_latest_version if pkg.update else pkg.url_download
@@ -457,14 +459,14 @@ class AppImageManager(SoftwareManager):
                                              body=self.i18n['appimage.install.appimagelauncher.error'].format(appimgl=bold('AppImageLauncher'), app=bold(pkg.name)),
                                              type_=MessageType.ERROR)
                         handler.handle(SystemProcess(new_subprocess(['rm', '-rf', out_dir])))
-                        return False
+                        return TransactionResult(success=False, installed=[], removed=[])
                 except:
                     watcher.show_message(title=self.i18n['error'],
                                          body=traceback.format_exc(),
                                          type_=MessageType.ERROR)
                     traceback.print_exc()
                     handler.handle(SystemProcess(new_subprocess(['rm', '-rf', out_dir])))
-                    return False
+                    return TransactionResult(success=False, installed=[], removed=[])
 
                 watcher.change_substatus(self.i18n['appimage.install.desktop_entry'])
                 extracted_folder = '{}/{}'.format(out_dir, 'squashfs-root')
@@ -491,7 +493,7 @@ class AppImageManager(SoftwareManager):
                         f.write(de_content)
 
                     shutil.rmtree(extracted_folder)
-                    return True
+                    return TransactionResult(success=True, installed=[pkg], removed=[])
                 else:
                     watcher.show_message(title=self.i18n['error'],
                                          body='Could extract content from {}'.format(bold(file_name)),
@@ -502,7 +504,7 @@ class AppImageManager(SoftwareManager):
                                  type_=MessageType.ERROR)
 
         handler.handle(SystemProcess(new_subprocess(['rm', '-rf', out_dir])))
-        return False
+        return TransactionResult(success=False, installed=[], removed=[])
 
     def _gen_desktop_entry_path(self, app: AppImage) -> str:
         return '{}/bauh_appimage_{}.desktop'.format(DESKTOP_ENTRIES_PATH, app.name.lower())
