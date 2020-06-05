@@ -1720,6 +1720,9 @@ class ArchManager(SoftwareManager):
                     else:
                         uninstalled = [p for p in pkgs_to_uninstall if p.name == conflict]
                         if uninstalled:
+                            uninstalled[0].icon_path = None
+                            uninstalled[0].icon_url = None
+                            uninstalled[0].installed = False
                             context.removed[conflict] = uninstalled[0]
         else:
             self.logger.info("No conflict detected for '{}'".format(context.name))
@@ -1752,6 +1755,7 @@ class ArchManager(SoftwareManager):
         else:
             status_handler = None
 
+        installed_with_same_name = self.read_installed(disk_loader=context.disk_loader, internet_available=True, names={context.name}).installed
         context.watcher.change_substatus(self.i18n['arch.installing.package'].format(bold(context.name)))
         installed, _ = context.handler.handle_simple(pacman.install_as_process(pkgpaths=to_install,
                                                                                root_password=context.root_password,
@@ -1766,6 +1770,14 @@ class ArchManager(SoftwareManager):
 
         if installed:
             context.installed.update(to_install)
+
+            if installed_with_same_name:
+                for p in installed_with_same_name:
+                    context.removed[p.name] = p
+                    p.installed = False
+                    p.icon_path = None
+                    p.icon_url = None
+
             context.watcher.change_substatus(self.i18n['status.caching_data'].format(bold(context.name)))
 
             if not context.maintainer:
@@ -1804,6 +1816,7 @@ class ArchManager(SoftwareManager):
 
             disk.save_several(pkgs=cache_map, maintainer=None, overwrite=True)
 
+            context.watcher.change_substatus('')
             self._update_progress(context, 100)
 
         return installed
